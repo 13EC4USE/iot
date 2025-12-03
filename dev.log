@@ -1,0 +1,122 @@
+
+> my-v0-project@0.1.0 dev
+> next dev
+
+   ▲ Next.js 16.0.3 (Turbopack)
+   - Local:         http://localhost:3000
+   - Network:       http://100.103.2.124:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+ ○ Compiling proxy ...
+ ✓ Ready in 16.8s
+ POST /api/auth/login 200 in 3.0s (compile: 2.2s, proxy.ts: 791ms, render: 54ms)
+ ○ Compiling / ...
+D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_8de52803._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_@supabase_auth-js_dist_module_b73e6ca7._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_next_456baad0._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\node_modules\next\dist\server\next-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\node_modules\next\dist\server\dev\next-dev-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\node_modules\next\dist\server\base-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\node_modules\next\dist\trace\trace.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\node_modules\next\dist\server\lib\router-utils\resolve-routes.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\node_modules\next\dist\server\lib\router-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\node_modules\next\dist\server\lib\start-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+TypeError: request.cookies.getSetCookie is not a function
+    at Object.getAll (D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js:93:40)
+    at proxy (D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js:90:218)
+D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_8de52803._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_@supabase_auth-js_dist_module_b73e6ca7._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+ ⨯ TypeError: request.cookies.getSetCookie is not a function
+    at Object.getAll (D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js:93:40)
+D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_8de52803._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_@supabase_auth-js_dist_module_b73e6ca7._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+TypeError: request.cookies.getSetCookie is not a function
+    at Object.getAll (D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js:93:40)
+D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_8de52803._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_@supabase_auth-js_dist_module_b73e6ca7._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+ ⨯ unhandledRejection: TypeError: request.cookies.getSetCookie is not a function
+    at Object.getAll (D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js:93:40)
+D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_8de52803._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_@supabase_auth-js_dist_module_b73e6ca7._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+ ⨯ unhandledRejection:  TypeError: request.cookies.getSetCookie is not a function
+    at Object.getAll (D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js:93:40)
+D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_8de52803._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_@supabase_auth-js_dist_module_b73e6ca7._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+TypeError: request.cookies.getSetCookie is not a function
+    at Object.getAll (D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js:93:40)
+D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_8de52803._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_@supabase_auth-js_dist_module_b73e6ca7._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+ ⨯ unhandledRejection: TypeError: request.cookies.getSetCookie is not a function
+    at Object.getAll (D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js:93:40)
+D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_8de52803._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_@supabase_auth-js_dist_module_b73e6ca7._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+ ⨯ unhandledRejection:  TypeError: request.cookies.getSetCookie is not a function
+    at Object.getAll (D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js:93:40)
+ GET /admin/dashboard 404 in 6.6s (compile: -370298µs, proxy.ts: 6.6s, render: 378ms)
+ POST /api/auth/login 200 in 33ms (compile: 11ms, proxy.ts: 11ms, render: 12ms)
+D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_8de52803._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_@supabase_auth-js_dist_module_b73e6ca7._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_next_456baad0._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\node_modules\next\dist\server\next-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\node_modules\next\dist\server\dev\next-dev-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\node_modules\next\dist\server\base-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\node_modules\next\dist\trace\trace.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\node_modules\next\dist\server\lib\router-utils\resolve-routes.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\node_modules\next\dist\server\lib\router-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\node_modules\next\dist\server\lib\start-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+TypeError: request.cookies.getSetCookie is not a function
+    at Object.getAll (D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js:93:40)
+    at proxy (D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js:90:218)
+D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_8de52803._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_@supabase_auth-js_dist_module_b73e6ca7._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+ ⨯ TypeError: request.cookies.getSetCookie is not a function
+    at Object.getAll (D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js:93:40)
+D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_8de52803._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_@supabase_auth-js_dist_module_b73e6ca7._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+TypeError: request.cookies.getSetCookie is not a function
+    at Object.getAll (D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js:93:40)
+D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_8de52803._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_@supabase_auth-js_dist_module_b73e6ca7._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+ ⨯ unhandledRejection: TypeError: request.cookies.getSetCookie is not a function
+    at Object.getAll (D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js:93:40)
+D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_8de52803._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_@supabase_auth-js_dist_module_b73e6ca7._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+ ⨯ unhandledRejection:  TypeError: request.cookies.getSetCookie is not a function
+    at Object.getAll (D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js:93:40)
+D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_8de52803._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_@supabase_auth-js_dist_module_b73e6ca7._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+TypeError: request.cookies.getSetCookie is not a function
+    at Object.getAll (D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js:93:40)
+D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_8de52803._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_@supabase_auth-js_dist_module_b73e6ca7._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+ ⨯ unhandledRejection: TypeError: request.cookies.getSetCookie is not a function
+    at Object.getAll (D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js:93:40)
+D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_8de52803._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+D:\io-t-webpage (2)\.next\dev\server\chunks\node_modules_@supabase_auth-js_dist_module_b73e6ca7._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+ ⨯ unhandledRejection:  TypeError: request.cookies.getSetCookie is not a function
+    at Object.getAll (D:\io-t-webpage (2)\.next\dev\server\chunks\[root-of-the-server]__6c9af540._.js:93:40)
+ GET /admin/dashboard 404 in 136ms (compile: -31604µs, proxy.ts: 111ms, render: 56ms)
+ GET / 200 in 17.0s (compile: 15.5s, render: 1506ms)
+ POST /api/auth/login 200 in 625ms (compile: 86ms, proxy.ts: 505ms, render: 34ms)
+ ○ Compiling /admin/login ...
+ GET /admin/login 200 in 8.9s (compile: 8.4s, proxy.ts: 107ms, render: 408ms)
+ GET /admin/login 200 in 550ms (compile: 56ms, proxy.ts: 22ms, render: 472ms)
+[?25h

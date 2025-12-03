@@ -1,0 +1,9 @@
+node_modules
+.next
+dist
+build
+*.min.js
+.git
+coverage
+.env
+.env.local
