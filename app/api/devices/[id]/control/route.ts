@@ -1,93 +1,131 @@
-import { NextResponse } from 'next/server'
-import { createClient as createServerSupabase } from '@/lib/supabase/server'
+import { NextResponse, type NextRequest } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { publishMessage } from "@/lib/mqtt/client";
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
-  try {
-    const { id } = params
-    const body = await req.json()
-    const { action, value } = body
-
-    const supabase = await createServerSupabase()
-
-    if (action === 'power') {
-      const { data, error } = await supabase.from('devices').update({ power: !!value }).eq('id', id).select().single()
-      if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-      return NextResponse.json(data)
-    }
-
-    // extend with other actions as needed
-    return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || String(err) }, { status: 500 })
-  }
-}
-import { createClient } from "@/lib/supabase/server"
-import { publishMessage } from "@/lib/mqtt/client"
-import { NextResponse, type NextRequest } from "next/server"
-
+//
+// ===============================
+//  Device Action Controller API
+// ===============================
+//
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const supabase = await createClient()
+    const supabase = await createClient();
 
+    // -------------------------------
+    // 1) Auth
+    // -------------------------------
     const {
       data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
+    } = await supabase.auth.getUser();
 
-    if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { action, value } = await request.json()
+    // -------------------------------
+    // 2) Input
+    // -------------------------------
+    const { action, value } = await request.json();
+    const deviceId = params.id;
 
+    // -------------------------------
+    // 3) ตรวจว่า device เป็นของ user จริงไหม
+    // -------------------------------
     const { data: device, error: deviceError } = await supabase
       .from("devices")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", deviceId)
       .eq("user_id", user.id)
-      .single()
+      .single();
 
     if (deviceError || !device) {
-      return NextResponse.json({ error: "Device not found" }, { status: 404 })
+      return NextResponse.json({ error: "Device not found" }, { status: 404 });
     }
 
-    if (action === "power") {
-      const topic = `${device.mqtt_topic}/control/power`
-      publishMessage(topic, JSON.stringify({ power: value }))
+    // ช่วยให้ใช้ได้สบาย
+    const topicBase = device.mqtt_topic || `devices/${deviceId}`;
 
-      // Update device power state in database
-      await supabase.from("devices").update({ power: value, updated_at: new Date().toISOString() }).eq("id", params.id)
+    //
+    // ============================
+    //  ACTION HANDLERS
+    // ============================
+    //
+
+    // ---------------------------------------
+    //  ACTION 1: POWER ON / POWER OFF
+    // ---------------------------------------
+    if (action === "power") {
+      const topic = `${topicBase}/control/power`;
+
+      publishMessage(topic, JSON.stringify({ power: value }));
+
+      await supabase
+        .from("devices")
+        .update({
+          power: !!value,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", deviceId);
 
       return NextResponse.json({
         success: true,
-        message: value ? "เปิดอุปกรณ์สำเร็จ" : "ปิดอุปกรณ์สำเร็จ",
-        deviceId: params.id,
+        action,
+        deviceId,
         power: value,
-      })
+        message: value ? "เปิดอุปกรณ์สำเร็จ" : "ปิดอุปกรณ์สำเร็จ",
+      });
     }
 
+    // ---------------------------------------
+    //  ACTION 2: SET THRESHOLD
+    // ---------------------------------------
     if (action === "setThreshold") {
-      const topic = `${device.mqtt_topic}/control/threshold`
-      publishMessage(topic, JSON.stringify(value))
+      const topic = `${topicBase}/control/threshold`;
 
-      // Update device settings
+      publishMessage(topic, JSON.stringify(value));
+
       await supabase.from("device_settings").upsert({
-        device_id: params.id,
+        device_id: deviceId,
         min_threshold: value.min,
         max_threshold: value.max,
         updated_at: new Date().toISOString(),
-      })
+      });
 
       return NextResponse.json({
         success: true,
-        message: "ตั้งค่า Threshold สำเร็จ",
-        deviceId: params.id,
+        action,
+        deviceId,
         threshold: value,
-      })
+        message: "ตั้งค่า Threshold สำเร็จ",
+      });
     }
 
-    return NextResponse.json({ error: "Unknown action" }, { status: 400 })
+    // ---------------------------------------
+    //  ACTION TEMPLATE (คุณเพิ่มเองได้ง่าย)
+    // ---------------------------------------
+    if (action === "mode") {
+      const topic = `${topicBase}/control/mode`;
+      publishMessage(topic, JSON.stringify({ mode: value }));
+
+      await supabase.from("devices").update({
+        mode: value,
+        updated_at: new Date().toISOString(),
+      });
+
+      return NextResponse.json({
+        success: true,
+        action,
+        mode: value,
+        deviceId,
+        message: `ตั้งค่าโหมด: ${value}`,
+      });
+    }
+
+    // ---------------------------------------
+    //  ACTION ไม่รู้จัก
+    // ---------------------------------------
+    return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

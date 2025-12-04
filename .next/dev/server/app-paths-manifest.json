@@ -1,9 +1,0 @@
-{
-  "/admin/dashboard/page": "app/admin/dashboard/page.js",
-  "/admin/devices/page": "app/admin/devices/page.js",
-  "/admin/login/page": "app/admin/login/page.js",
-  "/admin/settings/page": "app/admin/settings/page.js",
-  "/api/alerts/route": "app/api/alerts/route.js",
-  "/api/devices/route": "app/api/devices/route.js",
-  "/page": "app/page.js"
-}

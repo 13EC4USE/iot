@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 46, "column": 0}, "map": {"version":3,"sources":["file:///D:/io-t-webpage%20%282%29/app/api/auth/login/route.ts"],"sourcesContent":["import { type NextRequest, NextResponse } from \"next/server\"\n\nexport async function POST(request: NextRequest) {\n  try {\n    const { email, password } = await request.json()\n\n    // Test credentials (in production use proper database)\n    if (email === \"admin@iot.com\" && password === \"password123\") {\n      return NextResponse.json({\n        token: \"test-token-\" + Date.now(),\n        message: \"เข้าสู่ระบบสำเร็จ\",\n      })\n    }\n\n    return NextResponse.json({ message: \"อีเมลหรือรหัสผ่านไม่ถูกต้อง\" }, { status: 401 })\n  } catch (error) {\n    return NextResponse.json({ message: \"เกิดข้อผิดพลาดในเซิร์ฟเวอร์\" }, { status: 500 })\n  }\n}\n"],"names":[],"mappings":";;;;AAAA;;AAEO,eAAe,KAAK,OAAoB;IAC7C,IAAI;QACF,MAAM,EAAE,KAAK,EAAE,QAAQ,EAAE,GAAG,MAAM,QAAQ,IAAI;QAE9C,uDAAuD;QACvD,IAAI,UAAU,mBAAmB,aAAa,eAAe;YAC3D,OAAO,gJAAY,CAAC,IAAI,CAAC;gBACvB,OAAO,gBAAgB,KAAK,GAAG;gBAC/B,SAAS;YACX;QACF;QAEA,OAAO,gJAAY,CAAC,IAAI,CAAC;YAAE,SAAS;QAA8B,GAAG;YAAE,QAAQ;QAAI;IACrF,EAAE,OAAO,OAAO;QACd,OAAO,gJAAY,CAAC,IAAI,CAAC;YAAE,SAAS;QAA8B,GAAG;YAAE,QAAQ;QAAI;IACrF;AACF"}}]
-}
