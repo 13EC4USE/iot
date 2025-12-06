@@ -1,89 +1,44 @@
-"use client"
-
-import type React from "react"
-
-import { useEffect, useState } from "react"
-import { useRouter, usePathname } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
 import { Sidebar } from "@/components/admin/sidebar"
 import { TopBar } from "@/components/admin/topbar"
+import { ToastContainer } from "@/components/toast-container"
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const router = useRouter()
-  const pathname = usePathname()
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const supabase = await createClient()
 
-  // Public admin routes that should render without authentication
-  const publicRoutes = [
-    "/admin/login",
-    "/admin/sign-up",
-    "/admin/forgot-password",
-  ]
+  // load user session on the server
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      // Allow public admin routes (login, sign-up, forgot-password)
-      const publicRoutes = [
-        "/admin/login",
-        "/admin/sign-up",
-        "/admin/forgot-password",
-      ]
-
-      if (pathname && publicRoutes.some((r) => pathname.startsWith(r))) {
-        setLoading(false)
-        return
-      }
-      const supabase = createClient()
-
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser()
-
-      if (error || !user) {
-        router.push("/admin/login")
-      } else {
-        setIsAuthenticated(true)
-      }
-
-      setLoading(false)
-    }
-
-    checkAuth()
-  }, [router, pathname])
-
-  if (loading) {
+  // Public routes that don't need auth UI
+  const publicPaths = ["/admin/login", "/admin/sign-up", "/admin/forgot-password"]
+  // Can't easily get pathname in layout; rely on proxy.js for redirect
+  // Here: if no user, render children without admin UI (for login page)
+  if (!user) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-foreground/60">กำลังโหลด...</div>
-      </div>
+      <main className="flex-1 overflow-auto">
+        {children}
+        <ToastContainer />
+      </main>
     )
   }
 
-  if (!isAuthenticated) {
-    // If this is a public admin route, allow rendering children (login, sign-up, forgot-password)
-    if (pathname && publicRoutes.some((r) => pathname.startsWith(r))) {
-      return (
-        <div className="flex h-screen bg-background">
-          <main className="flex-1 overflow-auto">{children}</main>
-        </div>
-      )
-    }
-
-    return null
-  }
-
+  // -------------------------------
+  //  AUTH SUCCESS → SHOW ADMIN UI
+  // -------------------------------
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar />
         <main className="flex-1 overflow-auto">{children}</main>
+        <ToastContainer />
       </div>
     </div>
   )

@@ -77,3 +77,73 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
+
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id: userId } = await params
+    const supabase = await createClient()
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { role } = body
+
+    if (!["admin", "user"].includes(role)) {
+      return NextResponse.json({ error: "Invalid role" }, { status: 400 })
+    }
+
+    // Update user role
+    const { error } = await supabase
+      .from("users")
+      .update({
+        role,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", userId)
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error("User update error:", error)
+    return NextResponse.json({ error: error?.message || "Internal server error" }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id: userId } = await params
+    const supabase = await createClient()
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Delete user from public.users
+    const { error: deleteError } = await supabase
+      .from("users")
+      .delete()
+      .eq("id", userId)
+
+    if (deleteError) {
+      return NextResponse.json({ error: deleteError.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error("User delete error:", error)
+    return NextResponse.json({ error: error?.message || "Internal server error" }, { status: 500 })
+  }
+}

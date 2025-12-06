@@ -69,6 +69,26 @@ alter table public.sensor_data enable row level security;
 alter table public.device_alerts enable row level security;
 alter table public.device_settings enable row level security;
 
+-- Drop existing policies to make this script idempotent
+drop policy if exists "users_select_own" on public.users;
+drop policy if exists "users_insert_own" on public.users;
+drop policy if exists "users_update_own" on public.users;
+
+drop policy if exists "devices_select_own" on public.devices;
+drop policy if exists "devices_insert_own" on public.devices;
+drop policy if exists "devices_update_own" on public.devices;
+drop policy if exists "devices_delete_own" on public.devices;
+
+drop policy if exists "sensor_data_select_own" on public.sensor_data;
+drop policy if exists "sensor_data_insert_own" on public.sensor_data;
+
+drop policy if exists "device_alerts_select_own" on public.device_alerts;
+drop policy if exists "device_alerts_insert_own" on public.device_alerts;
+
+drop policy if exists "device_settings_select_own" on public.device_settings;
+drop policy if exists "device_settings_insert_own" on public.device_settings;
+drop policy if exists "device_settings_update_own" on public.device_settings;
+
 -- Create RLS Policies for users table
 create policy "users_select_own" on public.users for select using (auth.uid() = id);
 create policy "users_insert_own" on public.users for insert with check (auth.uid() = id);
@@ -101,6 +121,13 @@ create policy "device_settings_update_own" on public.device_settings for update
   using (exists (select 1 from public.devices d where d.id = device_settings.device_id and d.user_id = auth.uid()));
 
 -- Create indexes for performance
+drop index if exists devices_user_id_idx;
+drop index if exists devices_mqtt_topic_idx;
+drop index if exists sensor_data_device_id_idx;
+drop index if exists sensor_data_timestamp_idx;
+drop index if exists device_alerts_device_id_idx;
+drop index if exists device_settings_device_id_idx;
+
 create index devices_user_id_idx on public.devices(user_id);
 create index devices_mqtt_topic_idx on public.devices(mqtt_topic);
 create index sensor_data_device_id_idx on public.sensor_data(device_id);

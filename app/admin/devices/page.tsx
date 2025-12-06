@@ -2,9 +2,10 @@
 
 import { useDevices } from "@/lib/hooks/useSWR"
 import { useDeviceFull } from "@/lib/hooks/useDeviceFull"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogTrigger,
@@ -17,12 +18,27 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, Settings, Trash2, Power, PowerOff, Loader, Copy, Check, Eye, EyeOff } from "lucide-react"
+import { Plus, Settings, Trash2, Power, PowerOff, Loader, Copy, Check, Eye, EyeOff, Sliders, Grid3x3, LayoutGrid } from "lucide-react"
 import Link from "next/link"
+import { DeviceCustomizationDialog } from "@/components/admin/dialogs/device-customization-dialog"
+import { CustomDeviceWidget } from "@/components/admin/widgets/custom-device-widget"
 
 export default function DevicesPage() {
   const { devices, isLoading, error, mutate } = useDevices()
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+  
+  // Check admin status on mount
+  useEffect(() => {
+    fetch("/api/auth/session")
+      .then(res => res.json())
+      .then(data => {
+        if (data.user?.email === "foolkzaza@gmail.com") {
+          setIsAdmin(true)
+        }
+      })
+      .catch(console.error)
+  }, [])
   
   // State สำหรับ Dialog
   const [open, setOpen] = useState(false)
@@ -34,6 +50,12 @@ export default function DevicesPage() {
   // State ใหม่! สำหรับเก็บ Credentials ที่ได้จาก Backend
   const [createdCredentials, setCreatedCredentials] = useState<any>(null)
   const [copiedField, setCopiedField] = useState<string | null>(null)
+  
+  // State สำหรับ Device Customization
+  const [customizingDevice, setCustomizingDevice] = useState<any>(null)
+  
+  // State สำหรับ View Mode (list or widget)
+  const [viewMode, setViewMode] = useState<"list" | "widget">("list")
 
   // ฟังก์ชันช่วย Copy ข้อมูล
   const copyToClipboard = (text: string, field: string) => {
@@ -70,15 +92,37 @@ export default function DevicesPage() {
   }
 
   const handleDelete = async (deviceId: string) => {
+    console.log("handleDelete called with deviceId:", deviceId, "type:", typeof deviceId)
+    
+    if (!deviceId || deviceId === "undefined" || deviceId === "null") {
+      alert("ไม่พบรหัสอุปกรณ์ที่ต้องการลบ")
+      return
+    }
+
+    if (!confirm("คุณแน่ใจหรือไม่ที่จะลบอุปกรณ์นี้? การกระทำนี้ไม่สามารถย้อนกลับได้")) {
+      return
+    }
+
     setDeleting(deviceId)
     try {
-      const response = await fetch(`/api/devices/${deviceId}`, { method: "DELETE" })
+      console.log("Sending DELETE request to:", `/api/devices/${deviceId}`)
+      const response = await fetch(`/api/devices/${deviceId}`, { 
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      })
+
+      const data = await response.json()
 
       if (response.ok) {
         mutate()
+        alert("ลบอุปกรณ์สำเร็จ")
+      } else {
+        console.error("Delete failed:", data)
+        alert(`ลบอุปกรณ์ไม่สำเร็จ: ${data.error || "Unknown error"}`)
       }
     } catch (error) {
       console.error("Failed to delete device:", error)
+      alert("เกิดข้อผิดพลาดในการลบอุปกรณ์")
     } finally {
       setDeleting(null)
     }
@@ -88,17 +132,49 @@ export default function DevicesPage() {
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">จัดการอุปกรณ์</h1>
-          <p className="text-foreground/60">เพิ่ม ลบ และควบคุมอุปกรณ์ IoT ของคุณ</p>
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-3xl font-bold text-foreground">จัดการอุปกรณ์</h1>
+            {isAdmin && (
+              <Badge variant="destructive" className="text-xs font-bold">
+                🔐 ADMIN MODE
+              </Badge>
+            )}
+          </div>
+          <p className="text-foreground/60">
+            {isAdmin ? "กำลังดูอุปกรณ์ทั้งหมดในระบบ" : "เพิ่ม ลบ และควบคุมอุปกรณ์ IoT ของคุณ"}
+          </p>
         </div>
         
-        <Dialog open={open} onOpenChange={handleCloseDialog}>
-          <DialogTrigger asChild>
-            <Button className="bg-accent text-background hover:bg-accent/90 gap-2">
-              <Plus className="w-4 h-4" />
-              เพิ่มอุปกรณ์
+        <div className="flex gap-3">
+          {/* View Mode Toggle */}
+          <div className="flex gap-1 bg-muted p-1 rounded-lg">
+            <Button
+              size="sm"
+              variant={viewMode === "list" ? "default" : "ghost"}
+              onClick={() => setViewMode("list")}
+              className="gap-2"
+            >
+              <LayoutGrid className="w-4 h-4" />
+              รายการ
             </Button>
-          </DialogTrigger>
+            <Button
+              size="sm"
+              variant={viewMode === "widget" ? "default" : "ghost"}
+              onClick={() => setViewMode("widget")}
+              className="gap-2"
+            >
+              <Grid3x3 className="w-4 h-4" />
+              Widget
+            </Button>
+          </div>
+          
+          <Dialog open={open} onOpenChange={handleCloseDialog}>
+            <DialogTrigger asChild>
+              <Button className="bg-accent text-background hover:bg-accent/90 gap-2">
+                <Plus className="w-4 h-4" />
+                เพิ่มอุปกรณ์
+              </Button>
+            </DialogTrigger>
 
           <DialogContent className="sm:max-w-[500px]">
             {!createdCredentials ? (
@@ -256,6 +332,7 @@ export default function DevicesPage() {
           </DialogContent>
         </Dialog>
       </div>
+      </div>
 
       {isLoading && (
         <div className="flex items-center justify-center py-16">
@@ -270,9 +347,28 @@ export default function DevicesPage() {
         </div>
       )}
 
-      {/* --- ส่วนแสดงรายการ Device เดิมของคุณ (ไม่เปลี่ยนแปลง) --- */}
+      {/* --- ส่วนแสดงรายการ Device --- */}
       {devices && devices.length > 0 ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <>
+          {viewMode === "widget" ? (
+            /* Widget View Mode */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {devices.map((device: any) => (
+                <CustomDeviceWidget
+                  key={device.id}
+                  device={device}
+                  onCustomize={() => setCustomizingDevice(device)}
+                  onControl={(action) => {
+                    if (action === "on" || action === "off") {
+                      handleTogglePower(device.id, action === "off")
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            /* List View Mode (Original) */
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {devices.map((device: any) => (
             <Card key={device.id} className="p-6 bg-card border-border hover:border-accent/50 transition">
               <div className="flex items-start justify-between mb-4">
@@ -280,13 +376,23 @@ export default function DevicesPage() {
                   <h3 className="font-semibold text-foreground text-lg">{device.name}</h3>
                   <p className="text-sm text-foreground/60">{device.type}</p>
                 </div>
-                <div
-                  className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    device.is_active ? "bg-green-500/20 text-green-500" : "bg-red-500/20 text-red-500"
-                  }`}
-                >
-                  {device.is_active ? "● ออนไลน์" : "● ออฟไลน์"}
-                </div>
+                {(() => {
+                  const online = device.status_online ?? device.is_active
+                  const badgeColor = online ? "bg-green-500/20 text-green-500" : "bg-red-500/20 text-red-500"
+                  const lastSeenText = device.status_last_seen
+                    ? new Date(device.status_last_seen).toLocaleString()
+                    : "ไม่พบข้อมูล"
+                  return (
+                    <div className="text-right space-y-1">
+                      <div className={`px-3 py-1 rounded-full text-xs font-medium inline-block ${badgeColor}`}>
+                        {online ? "● ออนไลน์" : "● ออฟไลน์"}
+                      </div>
+                      <div className="text-[11px] text-foreground/60">
+                        ล่าสุด: {lastSeenText}
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
 
               <div className="space-y-3 mb-6">
@@ -303,6 +409,14 @@ export default function DevicesPage() {
               </div>
 
               <div className="flex gap-2">
+                <Button
+                  onClick={() => setCustomizingDevice(device)}
+                  className="gap-2 bg-purple-500/20 text-purple-500 hover:bg-purple-500/30"
+                  variant="ghost"
+                  title="ปรับแต่ง Widget"
+                >
+                  <Sliders className="w-4 h-4" />
+                </Button>
                 <Button
                   onClick={() => handleTogglePower(device.id, device.power)}
                   disabled={deleting === device.id}
@@ -325,7 +439,7 @@ export default function DevicesPage() {
                 <Button
                   onClick={() => handleDelete(device.id)}
                   disabled={deleting === device.id}
-                  className="flex-1 gap-2 bg-destructive/20 text-destructive hover:bg-destructive/30"
+                  className="gap-2 bg-destructive/20 text-destructive hover:bg-destructive/30"
                   variant="ghost"
                 >
                   {deleting === device.id ? (
@@ -333,12 +447,13 @@ export default function DevicesPage() {
                   ) : (
                     <Trash2 className="w-4 h-4" />
                   )}
-                  ลบ
                 </Button>
               </div>
             </Card>
           ))}
-        </div>
+            </div>
+          )}
+        </>
       ) : (
         <div className="text-center py-16 text-foreground/60">
           <p className="mb-4">ไม่มีอุปกรณ์ที่ลงทะเบียน</p>
@@ -347,6 +462,19 @@ export default function DevicesPage() {
             เพิ่มอุปกรณ์แรกของคุณ
           </Button>
         </div>
+      )}
+
+      {/* Device Customization Dialog */}
+      {customizingDevice && (
+        <DeviceCustomizationDialog
+          open={!!customizingDevice}
+          onOpenChange={(open: boolean) => !open && setCustomizingDevice(null)}
+          device={customizingDevice}
+          onSave={() => {
+            mutate()
+            setCustomizingDevice(null)
+          }}
+        />
       )}
     </div>
   )

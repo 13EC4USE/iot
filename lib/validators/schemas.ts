@@ -25,13 +25,13 @@ export const passwordResetSchema = z.object({
 // Device schemas
 export const deviceSchema = z.object({
   name: z.string().min(1, "ชื่ออุปกรณ์จำเป็น").max(100, "ชื่ออุปกรณ์ต้องไม่เกิน 100 ตัวอักษร"),
-  type: z.enum(["temperature", "humidity", "motion", "light", "other"]),
+  type: z.enum(["temperature", "humidity", "motion", "light", "switch", "other"]),
   location: z.string().max(100, "สถานที่ต้องไม่เกิน 100 ตัวอักษร").optional(),
   mac_address: z
     .string()
     .regex(/^([0-9A-Fa-f]{2}:){5}([0-9A-Fa-f]{2})$/, "รูปแบบ MAC Address ไม่ถูกต้อง")
     .optional(),
-  mqtt_topic: z.string().min(1, "MQTT Topic จำเป็น"),
+  mqtt_topic: z.string().optional(),
   is_active: z.boolean().default(true),
 })
 

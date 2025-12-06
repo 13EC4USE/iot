@@ -1,22 +1,44 @@
 "use client"
 
-import { useDevice, useDeviceData, useAlerts } from "@/lib/hooks/useSWR"
-import { useSearchParams } from "next/navigation"
+import { useDevice, useDeviceData, useAlerts, useDeviceSettings } from "@/lib/hooks/useSWR"
+import { useToast } from "@/lib/hooks/useToast"
+import { useSearchParams, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Power, Power as Power2, AlertCircle, CheckCircle, Radio, Zap, Loader } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { ArrowLeft, Power, Power as Power2, AlertCircle, CheckCircle, Radio, Zap, Loader, Trash2, AlertTriangle } from "lucide-react"
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 import Link from "next/link"
-import { MqttService } from "@/lib/mqtt/mqtt-service"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export default function DeviceControlPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const toast = useToast()
   const deviceId = searchParams.get("device")
 
-  const { device, isLoading: deviceLoading } = useDevice(deviceId)
-  const { data: sensorData } = useDeviceData(deviceId)
-  const { alerts } = useAlerts(deviceId)
+  // Redirect if no device ID
+  useEffect(() => {
+    if (!deviceId) {
+      toast.error("ไม่พบรหัสอุปกรณ์")
+      router.push("/admin/devices")
+    }
+  }, [deviceId, router])
+
+  const { device, isLoading: deviceLoading, mutate: mutateDevice } = useDevice(deviceId ?? null)
+  const { data: sensorData } = useDeviceData(deviceId ?? null)
+  const { alerts } = useAlerts(deviceId || undefined)
+  const { settings, isLoading: settingsLoading, mutate: mutateSettings } = useDeviceSettings(deviceId ?? null)
 
   const [localDevice, setLocalDevice] = useState<any>(null)
   const [controls, setControls] = useState({
@@ -25,63 +47,203 @@ export default function DeviceControlPage() {
     samplingRate: 30,
     alertEnabled: true,
   })
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [controlLoading, setControlLoading] = useState<string | null>(null)
 
+  // อัพเดท localDevice เมื่อ device data มาถึง
   useEffect(() => {
     if (device) {
       setLocalDevice(device)
     }
   }, [device])
 
+  // อัพเดท controls เมื่อ settings มาถึง
   useEffect(() => {
-    if (deviceId) {
-      MqttService.subscribeToDevice(deviceId, (data) => {
-        console.log("MQTT data received:", data)
+    if (settings) {
+      setControls({
+        minThreshold: settings.min_threshold ?? 20,
+        maxThreshold: settings.max_threshold ?? 30,
+        samplingRate: settings.update_interval ?? 30,
+        alertEnabled: settings.alert_enabled ?? true,
       })
     }
-  }, [deviceId])
+  }, [settings])
+
+  const handleDelete = async () => {
+    if (!deviceId || deviceId === "null" || deviceId === "undefined") {
+      toast.error("ไม่พบรหัสอุปกรณ์ที่ต้องการลบ")
+      setShowDeleteDialog(false)
+      return
+    }
+    
+    setDeleting(true)
+    try {
+      console.log("Deleting device with ID:", deviceId)
+      const response = await fetch(`/api/devices/${deviceId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        toast.success("ลบอุปกรณ์สำเร็จ")
+        router.push("/admin/devices")
+      } else {
+        console.error("Delete failed:", data)
+        alert(`ลบอุปกรณ์ไม่สำเร็จ: ${data.error || "Unknown error"}`)
+        setDeleting(false)
+        setShowDeleteDialog(false)
+      }
+    } catch (error) {
+      console.error("Failed to delete device:", error)
+      toast.error("เกิดข้อผิดพลาดในการลบอุปกรณ์")
+      setDeleting(false)
+      setShowDeleteDialog(false)
+    }
+  }
 
   const handleTogglePower = async () => {
     if (!deviceId) return
 
+    setControlLoading("power")
     try {
+      const newPowerState = !localDevice?.power
       const response = await fetch(`/api/devices/${deviceId}/control`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "power",
-          value: !localDevice?.power,
+          value: newPowerState,
         }),
       })
 
-      if (response.ok) {
-        setLocalDevice({ ...localDevice, power: !localDevice.power })
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        setLocalDevice({ ...localDevice, power: newPowerState })
+        mutateDevice()
+        alert(newPowerState ? "เปิดอุปกรณ์สำเร็จ" : "ปิดอุปกรณ์สำเร็จ")
+      } else {
+        toast.error(`ไม่สามารถเปลี่ยนสถานะเปิด/ปิดได้: ${data.error || "Unknown error"}`)
       }
     } catch (error) {
       console.error("Failed to toggle power:", error)
+      toast.error("เกิดข้อผิดพลาด")
+    } finally {
+      setControlLoading(null)
     }
   }
 
   const handleSetThreshold = async () => {
     if (!deviceId) return
 
+    setControlLoading("threshold")
     try {
+      console.log("Setting threshold:", {
+        min: controls.minThreshold,
+        max: controls.maxThreshold,
+      })
+
       const response = await fetch(`/api/devices/${deviceId}/control`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "setThreshold",
           value: {
-            min: controls.minThreshold,
-            max: controls.maxThreshold,
+            min: parseFloat(controls.minThreshold as any),
+            max: parseFloat(controls.maxThreshold as any),
           },
         }),
       })
 
-      if (response.ok) {
-        console.log("Threshold updated successfully")
+      const data = await response.json()
+      console.log("Threshold response:", data)
+
+      if (response.ok && data.success) {
+        toast.success("บันทึกการตั้งค่าเรียบร้อย")
+        mutateSettings() // รีเฟรชค่า settings
+      } else {
+        console.error("Failed to set threshold:", data)
+        toast.error(`ไม่สามารถบันทึกการตั้งค่าได้: ${data.error || data.details || "Unknown error"}`)
       }
     } catch (error) {
       console.error("Failed to set threshold:", error)
+      toast.error("เกิดข้อผิดพลาด: " + (error instanceof Error ? error.message : "Unknown"))
+    } finally {
+      setControlLoading(null)
+    }
+  }
+
+  const handleSaveAllSettings = async () => {
+    if (!deviceId) return
+
+    setControlLoading("settings")
+    try {
+      console.log("Saving all settings:", controls)
+
+      // บันทึก threshold
+      const thresholdResponse = await fetch(`/api/devices/${deviceId}/control`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "setThreshold",
+          value: {
+            min: parseFloat(controls.minThreshold as any),
+            max: parseFloat(controls.maxThreshold as any),
+          },
+        }),
+      })
+
+      const thresholdData = await thresholdResponse.json()
+      console.log("Threshold response:", thresholdData)
+
+      if (!thresholdResponse.ok) {
+        throw new Error(thresholdData.error || thresholdData.details || "Failed to save threshold")
+      }
+
+      // บันทึก alert enabled status
+      const alertResponse = await fetch(`/api/devices/${deviceId}/control`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "setAlertEnabled",
+          value: controls.alertEnabled,
+        }),
+      })
+
+      const alertData = await alertResponse.json()
+      console.log("Alert response:", alertData)
+
+      if (!alertResponse.ok) {
+        throw new Error(alertData.error || alertData.details || "Failed to save alert settings")
+      }
+
+      // บันทึก sampling rate
+      const samplingResponse = await fetch(`/api/devices/${deviceId}/control`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "setSamplingRate",
+          value: controls.samplingRate,
+        }),
+      })
+
+      const samplingData = await samplingResponse.json()
+      console.log("Sampling response:", samplingData)
+
+      if (!samplingResponse.ok) {
+        throw new Error(samplingData.error || samplingData.details || "Failed to save sampling rate")
+      }
+
+      toast.success("บันทึกการตั้งค่าทั้งหมดเรียบร้อย")
+      mutateSettings()
+    } catch (error) {
+      console.error("Failed to save settings:", error)
+      toast.error("เกิดข้อผิดพลาด: " + (error instanceof Error ? error.message : "Unknown"))
+    } finally {
+      setControlLoading(null)
     }
   }
 
@@ -104,17 +266,28 @@ export default function DeviceControlPage() {
   return (
     <div className="p-8">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
-        <Link href="/admin/devices">
-          <Button variant="ghost" className="text-foreground/60 hover:text-foreground gap-2">
-            <ArrowLeft className="w-4 h-4" />
-            กลับ
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">{localDevice.name}</h1>
-          <p className="text-foreground/60">{localDevice.type}</p>
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-4">
+          <Link href="/admin/devices">
+            <Button variant="ghost" className="text-foreground/60 hover:text-foreground gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              กลับ
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">{localDevice.name}</h1>
+            <p className="text-foreground/60">{localDevice.type} • {localDevice.location || "ไม่ระบุตำแหน่ง"}</p>
+          </div>
         </div>
+        <Button
+          variant="ghost"
+          className="bg-destructive/20 text-destructive hover:bg-destructive/30 gap-2"
+          onClick={() => setShowDeleteDialog(true)}
+          disabled={!deviceId || !device}
+        >
+          <Trash2 className="w-4 h-4" />
+          ลบอุปกรณ์
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -172,6 +345,7 @@ export default function DeviceControlPage() {
 
             <Button
               onClick={handleTogglePower}
+              disabled={controlLoading === "power"}
               className={`w-full h-12 gap-2 text-base font-medium ${
                 localDevice.power
                   ? "bg-red-500/20 text-red-500 hover:bg-red-500/30"
@@ -179,7 +353,12 @@ export default function DeviceControlPage() {
               }`}
               variant="ghost"
             >
-              {localDevice.power ? (
+              {controlLoading === "power" ? (
+                <>
+                  <Loader className="w-5 h-5 animate-spin" />
+                  กำลังดำเนินการ...
+                </>
+              ) : localDevice.power ? (
                 <>
                   <Power className="w-5 h-5" />
                   ปิดอุปกรณ์
@@ -239,37 +418,67 @@ export default function DeviceControlPage() {
                 <label className="block text-sm font-medium text-foreground mb-2">
                   ขีดจำกัดต่ำสุด: {controls.minThreshold}°C
                 </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="30"
-                  value={controls.minThreshold}
-                  onChange={(e) =>
-                    setControls({
-                      ...controls,
-                      minThreshold: Number.parseInt(e.target.value),
-                    })
-                  }
-                  className="w-full"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="range"
+                    min="0"
+                    max="30"
+                    step="0.1"
+                    value={controls.minThreshold}
+                    onChange={(e) =>
+                      setControls({
+                        ...controls,
+                        minThreshold: Number.parseFloat(e.target.value),
+                      })
+                    }
+                    className="flex-1"
+                  />
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={controls.minThreshold}
+                    onChange={(e) =>
+                      setControls({
+                        ...controls,
+                        minThreshold: Number.parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    className="w-20"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   ขีดจำกัดสูงสุด: {controls.maxThreshold}°C
                 </label>
-                <input
-                  type="range"
-                  min="30"
-                  max="50"
-                  value={controls.maxThreshold}
-                  onChange={(e) =>
-                    setControls({
-                      ...controls,
-                      maxThreshold: Number.parseInt(e.target.value),
-                    })
-                  }
-                  className="w-full"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="range"
+                    min="30"
+                    max="50"
+                    step="0.1"
+                    value={controls.maxThreshold}
+                    onChange={(e) =>
+                      setControls({
+                        ...controls,
+                        maxThreshold: Number.parseFloat(e.target.value),
+                      })
+                    }
+                    className="flex-1"
+                  />
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={controls.maxThreshold}
+                    onChange={(e) =>
+                      setControls({
+                        ...controls,
+                        maxThreshold: Number.parseFloat(e.target.value) || 30,
+                      })
+                    }
+                    className="w-20"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
@@ -307,8 +516,19 @@ export default function DeviceControlPage() {
                   เปิดใช้งานการแจ้งเตือน
                 </label>
               </div>
-              <Button onClick={handleSetThreshold} className="w-full bg-accent text-background hover:bg-accent/90">
-                บันทึกการตั้งค่า
+              <Button 
+                onClick={handleSaveAllSettings} 
+                disabled={controlLoading === "settings"}
+                className="w-full bg-accent text-background hover:bg-accent/90"
+              >
+                {controlLoading === "settings" ? (
+                  <>
+                    <Loader className="w-4 h-4 animate-spin mr-2" />
+                    กำลังบันทึก...
+                  </>
+                ) : (
+                  "บันทึกการตั้งค่า"
+                )}
               </Button>
             </div>
           </Card>
@@ -343,7 +563,7 @@ export default function DeviceControlPage() {
           <Card className="p-6 bg-card border-border">
             <h3 className="text-lg font-semibold text-foreground mb-4">การแจ้งเตือนล่าสุด</h3>
             <div className="space-y-3 max-h-80 overflow-y-auto">
-              {alerts.map((alert) => (
+              {alerts.map((alert: any) => (
                 <div key={alert.id} className="p-3 rounded-lg bg-background border border-border">
                   <div className="flex items-start gap-2">
                     {alert.type === "success" && <CheckCircle className="w-4 h-4 text-green-500 mt-0.5" />}
@@ -381,6 +601,40 @@ export default function DeviceControlPage() {
           </Card>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              ยืนยันการลบอุปกรณ์
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              คุณแน่ใจหรือไม่ที่จะลบอุปกรณ์ <strong>{localDevice.name}</strong>?
+              <br />
+              การกระทำนี้ไม่สามารถย้อนกลับได้ และข้อมูลทั้งหมดของอุปกรณ์นี้จะถูกลบถาวร
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (
+                <>
+                  <Loader className="w-4 h-4 animate-spin mr-2" />
+                  กำลังลบ...
+                </>
+              ) : (
+                "ลบอุปกรณ์"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

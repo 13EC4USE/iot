@@ -1,201 +1,422 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback } from "react"
-import useSWR from "swr"
-import mqtt from "mqtt/dist/mqtt"
+import { useMemo, useState, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Loader, RefreshCw, Power, Zap, Activity, Settings as SettingsIcon } from "lucide-react"
+import { TrafficChart } from "@/components/admin/charts/traffic-chart"
+import { OnlineHistoryChart } from "@/components/admin/charts/online-history-chart"
+import { DonutChart } from "@/components/admin/charts/donut-chart"
+import { SystemHealthWidget } from "@/components/admin/widgets/system-health-widget"
+import { RecentLogsWidget } from "@/components/admin/widgets/recent-logs-widget"
+import { MessageRateWidget } from "@/components/admin/widgets/message-rate-widget"
+import { GlobalSettingsDialog } from "@/components/admin/dialogs/global-settings-dialog"
+import { DeviceCustomizationDialog } from "@/components/admin/dialogs/device-customization-dialog"
+import { useToast } from "@/lib/hooks/useToast"
 
-const fetcher = (url: string) =>
-  fetch(url, { cache: "no-store" }).then((r) => r.json())
+interface SummaryStats {
+  total: number
+  online: number
+  offline: number
+  messagesToday: number
+  isAdmin?: boolean
+}
 
-// ----------------------------------------------------
-// 🧠 MAIN HOOK: useIoTSystem (FULL REALTIME MODE)
-// ----------------------------------------------------
-export function useIoTSystem(defaultDeviceId: string | null = null) {
-  // -----------------------------
-  // 1) Load devices list
-  // -----------------------------
-  const {
-    data: devices,
-    error: devicesError,
-    isLoading: devicesLoading,
-    mutate: mutateDevices,
-  } = useSWR("/api/devices", fetcher, { refreshInterval: 5000 })
+interface RecentDevice {
+  id: string
+  name: string
+  type: string
+  location: string | null
+  is_active: boolean | null
+  last_update: string | null
+  updated_at: string | null
+  created_at: string
+  battery_level: number | null
+  signal_strength: number | null
+  lastData: {
+    value: number | null
+    unit: string | null
+    temperature: number | null
+    humidity: number | null
+    timestamp: string
+  } | null
+}
 
-  // -----------------------------
-  // 2) Selected device state
-  // -----------------------------
-  const [selectedDeviceId, setSelectedDeviceId] =
-    useState<string | null>(defaultDeviceId)
+function formatRelative(ts?: string | null) {
+  if (!ts) return "ไม่พบข้อมูล"
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return "ไม่พบข้อมูล"
+  const diffMs = Date.now() - d.getTime()
+  const diffMin = Math.floor(diffMs / 60000)
+  if (diffMin < 1) return "ไม่กี่วินาทีที่แล้ว"
+  if (diffMin < 60) return `${diffMin} นาทีที่แล้ว`
+  const diffHr = Math.floor(diffMin / 60)
+  if (diffHr < 24) return `${diffHr} ชม.ที่แล้ว`
+  const diffDay = Math.floor(diffHr / 24)
+  return `${diffDay} วันที่แล้ว`
+}
 
-  // set default device after load
-  useEffect(() => {
-    if (!selectedDeviceId && Array.isArray(devices) && devices.length > 0) {
-      setSelectedDeviceId(devices[0].id)
+export default function DashboardPage() {
+  const [stats, setStats] = useState<SummaryStats>({
+    total: 0,
+    online: 0,
+    offline: 0,
+    messagesToday: 0,
+    isAdmin: false
+  })
+  const [recentDevices, setRecentDevices] = useState<RecentDevice[]>([])
+  const [loading, setLoading] = useState(true)
+  const [deviceLoading, setDeviceLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [customizingDevice, setCustomizingDevice] = useState<RecentDevice | null>(null)
+  const toast = useToast()
+
+  // Fetch summary stats
+  const fetchSummary = async () => {
+    try {
+      setLoading(true)
+      const res = await fetch("/api/stats/summary")
+      const data = await res.json()
+      if (res.ok) {
+        setStats(data)
+        setError(null)
+      } else {
+        setError(data.error || "โหลดข้อมูลล้มเหลว")
+      }
+    } catch (err) {
+      setError("เกิดข้อผิดพลาด")
+    } finally {
+      setLoading(false)
     }
-  }, [devices, selectedDeviceId])
+  }
 
-  // -----------------------------
-  // 3) Device detail
-  // -----------------------------
-  const {
-    data: device,
-    mutate: mutateDevice,
-    isLoading: deviceLoading,
-  } = useSWR(
-    selectedDeviceId ? `/api/devices/${selectedDeviceId}` : null,
-    fetcher
-  )
+  // Fetch recent 5 devices
+  const fetchRecentDevices = async () => {
+    try {
+      setDeviceLoading(true)
+      const res = await fetch("/api/devices/recent?limit=5&offset=0")
+      const data = await res.json()
+      if (res.ok) {
+        setRecentDevices(data.devices)
+      }
+    } catch (err) {
+      console.error("Failed to fetch recent devices:", err)
+    } finally {
+      setDeviceLoading(false)
+    }
+  }
 
-  // -----------------------------
-  // 4) Historical Data (DB)
-  // -----------------------------
-  const {
-    data: dbData,
-    mutate: mutateDbData,
-    isLoading: dbLoading,
-  } = useSWR(
-    selectedDeviceId
-      ? `/api/devices/${selectedDeviceId}/data?range=24h`
-      : null,
-    fetcher
-  )
-
-  const dbRows = Array.isArray(dbData?.data)
-    ? dbData.data
-    : Array.isArray(dbData)
-    ? dbData
-    : []
-
-  // -----------------------------
-  // 5) Alerts
-  // -----------------------------
-  const {
-    data: alertsData,
-    mutate: mutateAlerts,
-    isLoading: alertsLoading,
-  } = useSWR(
-    selectedDeviceId ? `/api/alerts?deviceId=${selectedDeviceId}` : null,
-    fetcher
-  )
-
-  const alerts = Array.isArray(alertsData?.alerts)
-    ? alertsData.alerts
-    : []
-
-  // -----------------------------
-  // 6) MQTT Realtime
-  // -----------------------------
-  const [realtimeData, setRealtimeData] = useState<Record<string, any[]>>({})
-  const mqttRef = useRef<any>(null)
-
+  // Initial load and refresh interval
   useEffect(() => {
-    const broker = process.env.NEXT_PUBLIC_MQTT_BROKER
-    if (!broker) return
+    fetchSummary()
+    fetchRecentDevices()
 
-    const client = mqtt.connect(broker, {
-      connectTimeout: 4000,
-      username: process.env.NEXT_PUBLIC_MQTT_USERNAME,
-      password: process.env.NEXT_PUBLIC_MQTT_PASSWORD,
-      clientId: `iot-${Math.random().toString(16).slice(2, 8)}`,
-    })
-
-    mqttRef.current = client
-
-    client.on("message", (topic, payload) => {
-      let parsed: any = {}
-      try {
-        parsed = JSON.parse(payload.toString())
-      } catch {
-        parsed = { value: payload.toString() }
-      }
-
-      if (!parsed.device_id) return
-
-      const row = {
-        device_id: parsed.device_id,
-        value: parsed.value ?? null,
-        temperature: parsed.temperature ?? parsed.temp ?? null,
-        humidity: parsed.humidity ?? null,
-        battery_level: parsed.battery ?? null,
-        timestamp: parsed.timestamp ?? new Date().toISOString(),
-      }
-
-      setRealtimeData((prev) => {
-        const arr = prev[row.device_id] ? [...prev[row.device_id]] : []
-        arr.push(row)
-        if (arr.length > 500) arr.shift()
-        return { ...prev, [row.device_id]: arr }
-      })
-    })
+    // Refresh summary every 30 seconds
+    const summaryInterval = setInterval(fetchSummary, 30000)
+    // Refresh devices every 60 seconds
+    const devicesInterval = setInterval(fetchRecentDevices, 60000)
 
     return () => {
-      try {
-        client.end(true)
-      } catch {}
+      clearInterval(summaryInterval)
+      clearInterval(devicesInterval)
     }
   }, [])
 
-  // subscribe per device
-  useEffect(() => {
-    if (!mqttRef.current || !device?.mqtt_topic) return
-    const client = mqttRef.current
-    client.subscribe(device.mqtt_topic)
-    return () => client.unsubscribe(device.mqtt_topic)
-  }, [device])
-
-  // -----------------------------
-  // 7) Merge DB + MQTT
-  // -----------------------------
-  const mergedData =
-    selectedDeviceId && realtimeData[selectedDeviceId]
-      ? [...dbRows, ...realtimeData[selectedDeviceId]]
-      : [...dbRows]
-
-  // -----------------------------
-  // 8) Control Device
-  // -----------------------------
-  const controlDevice = useCallback(
-    async (id: string, action: string, value: any) => {
-      const res = await fetch(`/api/devices/${id}/control`, {
+  const handleQuickControl = async (deviceId: string, command: string) => {
+    try {
+      const res = await fetch(`/api/devices/${deviceId}/control`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, value }),
+        body: JSON.stringify({ command })
       })
 
-      return await res.json()
-    },
-    []
+      if (res.ok) {
+        toast.success(`ส่งคำสั่ง ${command} สำเร็จ`)
+        // Refresh devices list after command
+        setTimeout(fetchRecentDevices, 1000)
+      } else {
+        const data = await res.json()
+        toast.error(data.error || "ส่งคำสั่งล้มเหลว")
+      }
+    } catch (error) {
+      toast.error("เกิดข้อผิดพลาด")
+    }
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-semibold text-foreground">ภาพรวมระบบ</h1>
+            {stats.isAdmin && (
+              <Badge variant="destructive" className="text-xs font-bold">
+                🔐 ADMIN MODE
+              </Badge>
+            )}
+          </div>
+          <p className="text-sm text-foreground/60">
+            {stats.isAdmin ? "กำลังดูอุปกรณ์ทั้งหมดในระบบ" : "สถานะอุปกรณ์และข้อมูลเรียลไทม์"}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => setSettingsOpen(true)}
+            className="gap-2"
+          >
+            <SettingsIcon className="w-4 h-4" /> ตั้งค่า
+          </Button>
+          <Button variant="ghost" onClick={() => {
+            fetchSummary()
+            fetchRecentDevices()
+          }} className="gap-2">
+            <RefreshCw className="w-4 h-4" /> รีเฟรช
+          </Button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="p-3 rounded border border-destructive/40 bg-destructive/10 text-destructive text-sm">
+          {error}
+        </div>
+      )}
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">อุปกรณ์ทั้งหมด</p>
+                <p className="text-3xl font-bold text-foreground mt-2">
+                  {loading ? <Loader className="h-6 w-6 animate-spin" /> : stats.total}
+                </p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-blue-500/10 flex items-center justify-center">
+                <Activity className="h-6 w-6 text-blue-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">ออนไลน์</p>
+                <p className="text-3xl font-bold text-green-500 mt-2">
+                  {loading ? <Loader className="h-6 w-6 animate-spin" /> : stats.online}
+                </p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-green-500/10 flex items-center justify-center">
+                <Zap className="h-6 w-6 text-green-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">ออฟไลน์</p>
+                <p className="text-3xl font-bold text-red-500 mt-2">
+                  {loading ? <Loader className="h-6 w-6 animate-spin" /> : stats.offline}
+                </p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-red-500/10 flex items-center justify-center">
+                <Power className="h-6 w-6 text-red-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">ข้อความวันนี้</p>
+                <p className="text-3xl font-bold text-foreground mt-2">
+                  {loading ? <Loader className="h-6 w-6 animate-spin" /> : stats.messagesToday.toLocaleString()}
+                </p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-purple-500/10 flex items-center justify-center">
+                <Activity className="h-6 w-6 text-purple-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-lg">ปริมาณข้อมูล 24 ชั่วโมงล่าสุด</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <TrafficChart />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">สัดส่วนสถานะอุปกรณ์</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DonutChart online={stats.online} offline={stats.offline} />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Second Row: Online History + Message Rate + System Health */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardTitle className="text-lg">ประวัติออนไลน์ (7 วัน)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <OnlineHistoryChart />
+          </CardContent>
+        </Card>
+
+        <MessageRateWidget className="lg:col-span-1" />
+        
+        <SystemHealthWidget className="lg:col-span-1" />
+      </div>
+
+      {/* Device Table + Recent Logs */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Enhanced Device Table - 2/3 width */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">อุปกรณ์อัปเดตล่าสุด (แสดง 5 ตัว)</CardTitle>
+              <Button size="sm" variant="ghost" onClick={fetchRecentDevices} className="gap-1">
+                <RefreshCw className="w-4 h-4" /> รีเฟรช
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {deviceLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader className="h-6 w-6 animate-spin" />
+              </div>
+            ) : recentDevices.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">ยังไม่มีอุปกรณ์</p>
+            ) : (
+              <div className="space-y-3">
+                {recentDevices.map((device: RecentDevice) => {
+                  // Check if device is online: is_active AND updated within 5 minutes
+                  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
+                  const lastUpdate = device.last_update ? new Date(device.last_update) : null
+                  const online = (device.is_active ?? false) && lastUpdate && lastUpdate > fiveMinutesAgo
+                  const lastData = device.lastData
+                  return (
+                    <div
+                      key={device.id}
+                      className="flex items-center justify-between gap-4 rounded-lg border border-border/60 p-4 hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-semibold text-foreground">{device.name}</p>
+                          <Badge variant={online ? "default" : "secondary"} className="text-xs">
+                            {online ? "ออนไลน์" : "ออฟไลน์"}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span>{device.type}</span>
+                          <span>•</span>
+                          <span>{device.location || "ไม่ระบุ"}</span>
+                        </div>
+                        
+                        {/* Latest Data */}
+                        {lastData && (
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 pt-1 border-t">
+                            {lastData.temperature !== null && (
+                              <span>🌡️ {lastData.temperature}°C</span>
+                            )}
+                            {lastData.humidity !== null && (
+                              <span>💧 {lastData.humidity}%</span>
+                            )}
+                            {device.battery_level !== null && (
+                              <span>🔋 {device.battery_level}%</span>
+                            )}
+                            {device.signal_strength !== null && (
+                              <span>📶 {device.signal_strength}%</span>
+                            )}
+                            {lastData.value !== null && (
+                              <span>📊 {lastData.value} {lastData.unit}</span>
+                            )}
+                          </div>
+                        )}
+                        
+                        <p className="text-xs text-muted-foreground mt-1">
+                          อัปเดต: {formatRelative(device.last_update || device.updated_at || device.created_at)}
+                        </p>
+                      </div>
+                      
+                      {/* Quick Actions */}
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setCustomizingDevice(device)}
+                          className="gap-1 text-muted-foreground hover:text-accent"
+                          title="Customize Widget"
+                        >
+                          <SettingsIcon className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleQuickControl(device.id, "on")}
+                          disabled={!online}
+                          className="gap-1"
+                        >
+                          <Power className="h-3 w-3" /> เปิด
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleQuickControl(device.id, "off")}
+                          disabled={!online}
+                          className="gap-1"
+                        >
+                          <Power className="h-3 w-3" /> ปิด
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Logs - 1/3 width */}
+        <RecentLogsWidget className="lg:col-span-1" />
+      </div>
+
+      {/* Global Settings Dialog */}
+      <GlobalSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+
+      {/* Device Customization Dialog */}
+      {customizingDevice && (
+        <DeviceCustomizationDialog
+          open={!!customizingDevice}
+          onOpenChange={(open) => !open && setCustomizingDevice(null)}
+          device={customizingDevice}
+          onSave={() => {
+            fetchRecentDevices()
+            toast.success("การปรับแต่งถูกบันทึกแล้ว")
+          }}
+        />
+      )}
+    </div>
   )
-
-  // -----------------------------
-  // 9) Mutate all
-  // -----------------------------
-  const mutateAll = () => {
-    mutateDevices()
-    mutateDevice()
-    mutateDbData()
-    mutateAlerts()
-  }
-
-  return {
-    // data
-    devices: Array.isArray(devices) ? devices : [],
-    device: device || null,
-    data: mergedData,
-    alerts,
-
-    // selection
-    selectedDeviceId,
-    setSelectedDeviceId,
-
-    // control
-    controlDevice,
-
-    // refresh
-    mutateAll,
-
-    // loading + errors
-    isLoading: devicesLoading || deviceLoading || dbLoading || alertsLoading,
-    error: devicesError,
-  }
 }

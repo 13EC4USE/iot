@@ -1,75 +1,35 @@
-import { NextResponse } from 'next/server'
-import { createClient as createServerSupabase } from '@/lib/supabase/server'
-
-export async function GET(req: Request, { params }: { params: { id: string } }) {
-  try {
-    const { id } = params
-    const supabase = await createServerSupabase()
-
-    const { data, error } = await supabase.from('devices').select('*').eq('id', id).single()
-
-    if (error) return NextResponse.json({ error: error.message }, { status: 404 })
-
-    return NextResponse.json(data)
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || String(err) }, { status: 500 })
-  }
-}
-
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
-  try {
-    const { id } = params
-    const body = await req.json()
-    const supabase = await createServerSupabase()
-
-    const { data, error } = await supabase.from('devices').update(body).eq('id', id).select().single()
-
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-
-    return NextResponse.json(data)
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || String(err) }, { status: 500 })
-  }
-}
-
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
-  try {
-    const { id } = params
-    const supabase = await createServerSupabase()
-
-    const { error } = await supabase.from('devices').delete().eq('id', id)
-
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-
-    return NextResponse.json({ success: true })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || String(err) }, { status: 500 })
-  }
-}
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import { isSuperAdmin } from "@/lib/utils/admin"
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+// =================================================
+// GET /api/devices/[id]
+// =================================================
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params
     const supabase = await createClient()
 
     const {
       data: { user },
-      error: userError,
     } = await supabase.auth.getUser()
 
-    if (userError || !user) {
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { data: device, error } = await supabase
-      .from("devices")
-      .select("*")
-      .eq("id", params.id)
-      .eq("user_id", user.id)
-      .single()
+    const isAdmin = isSuperAdmin(user.email)
 
-    if (error) {
+    // Admin can view any device, regular user can only view their own
+    let query = supabase.from("devices").select("*").eq("id", id)
+    
+    if (!isAdmin) {
+      query = query.eq("user_id", user.id)
+    }
+
+    const { data: device, error } = await query.single()
+
+    if (error || !device) {
       return NextResponse.json({ error: "Device not found" }, { status: 404 })
     }
 
@@ -79,31 +39,39 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+// =================================================
+// PUT /api/devices/[id]
+// =================================================
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params
     const supabase = await createClient()
 
     const {
       data: { user },
-      error: userError,
     } = await supabase.auth.getUser()
 
-    if (userError || !user) {
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const isAdmin = isSuperAdmin(user.email)
     const body = await request.json()
 
-    const { data: device, error } = await supabase
+    // Admin can update any device, regular user can only update their own
+    let query = supabase
       .from("devices")
       .update({
         ...body,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", params.id)
-      .eq("user_id", user.id)
-      .select()
-      .single()
+      .eq("id", id)
+    
+    if (!isAdmin) {
+      query = query.eq("user_id", user.id)
+    }
+
+    const { data: device, error } = await query.select().single()
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
@@ -115,27 +83,49 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+// =================================================
+// DELETE /api/devices/[id]
+// =================================================
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params
     const supabase = await createClient()
 
     const {
       data: { user },
-      error: userError,
     } = await supabase.auth.getUser()
 
-    if (userError || !user) {
+    if (!user) {
+      console.error("DELETE device: Unauthorized")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { error } = await supabase.from("devices").delete().eq("id", params.id).eq("user_id", user.id)
+    const isAdmin = isSuperAdmin(user.email)
+    console.log(`DELETE device: user=${user.id}, deviceId=${id}, isAdmin=${isAdmin}`)
+
+    // Admin can delete any device, regular user can only delete their own
+    let query = supabase.from("devices").delete().eq("id", id)
+    
+    if (!isAdmin) {
+      query = query.eq("user_id", user.id)
+    }
+
+    const { data, error } = await query.select()
 
     if (error) {
+      console.error("DELETE device error:", error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    if (!data || data.length === 0) {
+      console.error("DELETE device: Device not found or not owned by user")
+      return NextResponse.json({ error: "Device not found or you don't have permission" }, { status: 404 })
+    }
+
+    console.log("DELETE device success:", id)
     return NextResponse.json({ success: true })
-  } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  } catch (error: any) {
+    console.error("DELETE device exception:", error)
+    return NextResponse.json({ error: error?.message || "Internal server error" }, { status: 500 })
   }
 }

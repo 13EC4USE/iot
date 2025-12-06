@@ -55,7 +55,24 @@ export function useDeviceData(deviceId: string | null, range = "24h") {
 }
 
 // ---------------------------------------------
-// 🔹 4) ดึง alerts
+// 🔹 4) ดึง device settings
+// ---------------------------------------------
+export function useDeviceSettings(deviceId: string | null) {
+  const { data, error, isLoading, mutate } = useSWR(
+    deviceId ? `/api/devices/${deviceId}/settings` : null,
+    fetcher
+  )
+
+  return {
+    settings: data ?? null,
+    error,
+    isLoading,
+    mutate,
+  }
+}
+
+// ---------------------------------------------
+// 🔹 5) ดึง alerts
 // ---------------------------------------------
 export function useAlerts(deviceId?: string) {
   const query = deviceId ? `?deviceId=${deviceId}` : ""

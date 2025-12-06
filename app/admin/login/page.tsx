@@ -4,7 +4,7 @@ import type React from "react"
 
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Lock, Mail } from "lucide-react"
@@ -16,6 +16,34 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [emailError, setEmailError] = useState("")
+  const [checking, setChecking] = useState(true)
+
+  // Check if already logged in on mount
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          router.replace("/admin/dashboard")
+          return
+        }
+      } catch (err) {
+        console.error("Session check error:", err)
+      } finally {
+        setChecking(false)
+      }
+    }
+    checkSession()
+  }, [router])
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-background/95 flex items-center justify-center">
+        <div className="text-foreground/60">กำลังตรวจสอบ...</div>
+      </div>
+    )
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -118,8 +146,11 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-6 flex items-center justify-between text-sm text-foreground/60">
-          <div>บัญชีทดสอบ: admin@iot.com / password123</div>
-          <a href="/admin/forgot-password" className="text-accent hover:underline">ลืมรหัสผ่าน?</a>
+          <div className="text-xs">บัญชีทดสอบ: admin@iot.com / password123</div>
+          <div className="flex gap-4">
+            <a href="/admin/sign-up" className="text-accent hover:underline">สร้างบัญชี</a>
+            <a href="/admin/forgot-password" className="text-accent hover:underline">ลืมรหัสผ่าน?</a>
+          </div>
         </div>
       </Card>
     </div>

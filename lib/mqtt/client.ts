@@ -1,6 +1,18 @@
 import mqtt, { type MqttClient, IClientOptions } from "mqtt"
 
 let client: MqttClient | null = null
+let isConnected = false
+
+// Connection status callback (for UI updates)
+let connectionStatusCallback: ((connected: boolean) => void) | null = null
+
+export function setConnectionStatusCallback(callback: (connected: boolean) => void) {
+  connectionStatusCallback = callback
+}
+
+export function isMqttConnected(): boolean {
+  return isConnected && client !== null && client.connected
+}
 
 export function getMqttClient() {
   if (typeof window === "undefined") return null
@@ -30,14 +42,34 @@ export function getMqttClient() {
 
   client.on("connect", () => {
     console.log("[MQTT] Connected to broker", brokerUrl)
+    isConnected = true
+    if (connectionStatusCallback) {
+      connectionStatusCallback(true)
+    }
   })
 
   client.on("error", (error) => {
     console.error("[MQTT] Connection error:", error)
+    isConnected = false
+    if (connectionStatusCallback) {
+      connectionStatusCallback(false)
+    }
   })
 
   client.on("disconnect", () => {
     console.log("[MQTT] Disconnected from broker")
+    isConnected = false
+    if (connectionStatusCallback) {
+      connectionStatusCallback(false)
+    }
+  })
+
+  client.on("close", () => {
+    console.log("[MQTT] Connection closed")
+    isConnected = false
+    if (connectionStatusCallback) {
+      connectionStatusCallback(false)
+    }
   })
 
   return client
@@ -60,19 +92,24 @@ export function subscribeTopic(topic: string, callback: (message: string) => voi
   })
 }
 
-export function publishMessage(topic: string, payload: string) {
-  const mqttClient = getMqttClient()
-  if (!mqttClient) {
-    console.error("[MQTT] Client not connected")
-    return
-  }
-
-  mqttClient.publish(topic, payload, (error) => {
-    if (error) {
-      console.error(`[MQTT] Failed to publish to ${topic}:`, error)
-    } else {
-      console.log(`[MQTT] Published to ${topic}`)
+export function publishMessage(topic: string, payload: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const mqttClient = getMqttClient()
+    if (!mqttClient || !isConnected) {
+      console.error("[MQTT] Client not connected")
+      resolve(false)
+      return
     }
+
+    mqttClient.publish(topic, payload, (error) => {
+      if (error) {
+        console.error(`[MQTT] Failed to publish to ${topic}:`, error)
+        resolve(false)
+      } else {
+        console.log(`[MQTT] Published to ${topic}:`, payload)
+        resolve(true)
+      }
+    })
   })
 }
 
@@ -80,5 +117,6 @@ export function disconnectMqtt() {
   if (client) {
     client.end()
     client = null
+    isConnected = false
   }
 }

@@ -12,10 +12,17 @@ export default async function proxy(request) {
     "/admin/login",
     "/admin/sign-up",
     "/admin/forgot-password",
+    "/admin", // Add /admin root as public (landing page)
     "/api/auth",
   ]
 
-  const isPublic = publicRoutes.some((route) => pathname.startsWith(route))
+  const isPublic = publicRoutes.some((route) => {
+    // Exact match for /admin (landing) or startsWith for others
+    if (route === "/admin") {
+      return pathname === "/admin"
+    }
+    return pathname.startsWith(route)
+  })
   if (isPublic) return NextResponse.next()
 
   // -------------------------

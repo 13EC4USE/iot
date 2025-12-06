@@ -7,8 +7,9 @@ import { publishMessage } from "@/lib/mqtt/client";
 //  Device Action Controller API
 // ===============================
 //
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id: deviceId } = await params
     const supabase = await createClient();
 
     // -------------------------------
@@ -26,7 +27,6 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     // 2) Input
     // -------------------------------
     const { action, value } = await request.json();
-    const deviceId = params.id;
 
     // -------------------------------
     // 3) ตรวจว่า device เป็นของ user จริงไหม
@@ -84,12 +84,15 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
       publishMessage(topic, JSON.stringify(value));
 
-      await supabase.from("device_settings").upsert({
-        device_id: deviceId,
-        min_threshold: value.min,
-        max_threshold: value.max,
-        updated_at: new Date().toISOString(),
-      });
+      await supabase.from("device_settings").upsert(
+        {
+          device_id: deviceId,
+          min_threshold: value.min,
+          max_threshold: value.max,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "device_id" }
+      );
 
       return NextResponse.json({
         success: true,
@@ -97,6 +100,58 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         deviceId,
         threshold: value,
         message: "ตั้งค่า Threshold สำเร็จ",
+      });
+    }
+
+    // ---------------------------------------
+    //  ACTION 3: SET ALERT ENABLED
+    // ---------------------------------------
+    if (action === "setAlertEnabled") {
+      const topic = `${topicBase}/control/alert`;
+
+      publishMessage(topic, JSON.stringify({ alert_enabled: value }));
+
+      await supabase.from("device_settings").upsert(
+        {
+          device_id: deviceId,
+          alert_enabled: !!value,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "device_id" }
+      );
+
+      return NextResponse.json({
+        success: true,
+        action,
+        deviceId,
+        alert_enabled: value,
+        message: value ? "เปิดการแจ้งเตือนสำเร็จ" : "ปิดการแจ้งเตือนสำเร็จ",
+      });
+    }
+
+    // ---------------------------------------
+    //  ACTION 4: SET SAMPLING RATE (Update Interval)
+    // ---------------------------------------
+    if (action === "setSamplingRate") {
+      const topic = `${topicBase}/control/interval`;
+
+      publishMessage(topic, JSON.stringify({ update_interval: value }));
+
+      await supabase.from("device_settings").upsert(
+        {
+          device_id: deviceId,
+          update_interval: value,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "device_id" }
+      );
+
+      return NextResponse.json({
+        success: true,
+        action,
+        deviceId,
+        update_interval: value,
+        message: `ตั้งค่าอัตราการอัพเดทเป็น ${value} วินาทีสำเร็จ`,
       });
     }
 
@@ -124,8 +179,16 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     // ---------------------------------------
     //  ACTION ไม่รู้จัก
     // ---------------------------------------
-    return NextResponse.json({ error: "Unknown action" }, { status: 400 });
+    return NextResponse.json({ 
+      error: "Unknown action", 
+      receivedAction: action,
+      supportedActions: ["power", "setThreshold", "setAlertEnabled", "setSamplingRate", "mode"]
+    }, { status: 400 });
   } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error("Control API Error:", error);
+    return NextResponse.json({ 
+      error: "Internal server error",
+      details: error instanceof Error ? error.message : "Unknown error"
+    }, { status: 500 });
   }
 }

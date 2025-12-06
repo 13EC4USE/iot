@@ -24,8 +24,9 @@ function parseRange(range: string | null): number {
 //   GET sensor data
 // -------------------------
 //
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id: deviceId } = await params
     const supabase = await createClient()
 
     // authenticate user
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     const { data, error } = await supabase
       .from("sensor_data")
       .select("*")
-      .eq("device_id", params.id)
+      .eq("device_id", deviceId)
       .gte("timestamp", since)
       .order("timestamp", { ascending: true })
       .limit(limit)
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     }
 
     return NextResponse.json({
-      device_id: params.id,
+      device_id: deviceId,
       count: data.length,
       range,
       data,
@@ -67,8 +68,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 //   POST sensor data
 // -------------------------
 //
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id: deviceId } = await params
     const supabase = await createClient()
 
     // authenticate
@@ -78,7 +80,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const body = await request.json()
 
     const payload = {
-      device_id: params.id,
+      device_id: deviceId,
       value: body.value ?? null,
       unit: body.unit ?? null,
       temperature: body.temperature ?? null,

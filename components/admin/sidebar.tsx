@@ -10,6 +10,8 @@ export function Sidebar() {
   const menuItems = [
     { href: "/admin/dashboard", label: "แดชบอร์ด", icon: LayoutDashboard },
     { href: "/admin/devices", label: "จัดการอุปกรณ์", icon: Wifi },
+    { href: "/admin/alerts", label: "การแจ้งเตือน", icon: "🔔" },
+    { href: "/admin/users", label: "ผู้ใช้", icon: "👥" },
     { href: "/admin/settings", label: "ตั้งค่า", icon: Settings },
   ]
 
@@ -28,6 +30,7 @@ export function Sidebar() {
       <nav className="flex-1 space-y-2">
         {menuItems.map((item) => {
           const isActive = pathname.startsWith(item.href)
+          const IconComponent = typeof item.icon === "string" ? null : item.icon
           return (
             <a
               key={item.href}
@@ -38,7 +41,11 @@ export function Sidebar() {
                   : "text-foreground/60 hover:bg-background/50 hover:text-foreground"
               }`}
             >
-              <item.icon className="w-5 h-5" />
+              {IconComponent ? (
+                <IconComponent className="w-5 h-5" />
+              ) : (
+                <span className="text-lg">{item.icon}</span>
+              )}
               <span>{item.label}</span>
             </a>
           )
