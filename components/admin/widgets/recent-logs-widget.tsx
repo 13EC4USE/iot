@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import useSWR from "swr"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -8,6 +8,7 @@ import { AlertTriangle, Info, XCircle, Clock } from "lucide-react"
 
 interface RecentLogsProps {
   className?: string
+  autoRefreshEnabled?: boolean
 }
 
 interface LogEntry {
@@ -19,27 +20,25 @@ interface LogEntry {
   timestamp: string
 }
 
-export function RecentLogsWidget({ className }: RecentLogsProps) {
-  const [logs, setLogs] = useState<LogEntry[]>([])
-  const [loading, setLoading] = useState(true)
+const fetcher = (url: string) =>
+  fetch(url).then((res) => res.json())
 
-  useEffect(() => {
-    fetchLogs()
-    const interval = setInterval(fetchLogs, 30000) // Refresh every 30 seconds
-    return () => clearInterval(interval)
-  }, [])
-
-  const fetchLogs = async () => {
-    try {
-      const res = await fetch("/api/stats/recent-logs")
-      const data = await res.json()
-      setLogs(data.logs || [])
-    } catch (error) {
-      console.error("Failed to fetch recent logs:", error)
-    } finally {
-      setLoading(false)
+export function RecentLogsWidget({ className, autoRefreshEnabled = false }: RecentLogsProps) {
+  // Use SWR for recent logs - optimized for less frequent requests
+  const { data: logsData, isLoading: loading } = useSWR(
+    "/api/stats/recent-logs",
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 120000, // 2 minutes
+      refreshInterval: autoRefreshEnabled ? 300000 : undefined, // 5 minutes if enabled, undefined = disabled
+      errorRetryCount: 2,
+      errorRetryInterval: 30000,
     }
-  }
+  )
+
+  const logs = logsData?.logs || []
 
   const getIcon = (severity: string) => {
     switch (severity) {
@@ -92,7 +91,7 @@ export function RecentLogsWidget({ className }: RecentLogsProps) {
             </div>
           ) : (
             <div className="space-y-3">
-              {logs.map((log) => (
+              {logs.map((log: LogEntry) => (
                 <div
                   key={log.id}
                   className="flex gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"

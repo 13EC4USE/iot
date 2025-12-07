@@ -1,10 +1,11 @@
 "use client"
 
 import { useAlerts } from "@/lib/hooks/useSWR"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, CheckCircle, AlertCircle, AlertTriangle, Trash2, Check } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { ArrowLeft, CheckCircle, AlertCircle, AlertTriangle, Trash2, Check, RefreshCw, Bell, BellOff } from "lucide-react"
 import Link from "next/link"
 import {
   Select,
@@ -13,16 +14,55 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { createClient } from "@/lib/supabase/client"
 
 export default function AlertsPage() {
-  const { alerts, mutate } = useAlerts()
+  const { alerts, mutate, isLoading } = useAlerts()
   const [filterType, setFilterType] = useState("all")
   const [filterSeverity, setFilterSeverity] = useState("all")
   const [filterRead, setFilterRead] = useState("all")
   const [markingAsRead, setMarkingAsRead] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [autoRefresh, setAutoRefresh] = useState(true)
+
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    if (!autoRefresh) return
+
+    const interval = setInterval(() => {
+      mutate()
+    }, 30000)
+
+    return () => clearInterval(interval)
+  }, [autoRefresh, mutate])
+
+  // Realtime subscription for new alerts
+  useEffect(() => {
+    const supabase = createClient()
+
+    const channel = supabase
+      .channel('alerts-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'device_alerts',
+        },
+        () => {
+          mutate()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [mutate])
 
   const filteredAlerts = useMemo(() => {
+    if (!alerts || alerts.length === 0) return []
+    
     return alerts.filter((alert: any) => {
       if (filterType !== "all" && alert.type !== filterType) return false
       if (filterSeverity !== "all" && alert.severity !== filterSeverity) return false
@@ -33,12 +73,39 @@ export default function AlertsPage() {
   }, [alerts, filterType, filterSeverity, filterRead])
 
   const stats = useMemo(() => {
+    if (!alerts || alerts.length === 0) {
+      return { total: 0, unread: 0, critical: 0 }
+    }
+    
     return {
       total: alerts.length,
       unread: alerts.filter((a: any) => !a.is_read).length,
       critical: alerts.filter((a: any) => a.severity === "critical").length,
     }
   }, [alerts])
+
+  const handleMarkAllAsRead = async () => {
+    if (!confirm("ทำเครื่องหมายการแจ้งเตือนทั้งหมดว่าอ่านแล้ว?")) return
+
+    try {
+      const unreadAlerts = alerts?.filter((a: any) => !a.is_read) || []
+      
+      await Promise.all(
+        unreadAlerts.map((alert: any) =>
+          fetch(`/api/alerts/${alert.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ is_read: true }),
+          })
+        )
+      )
+
+      mutate()
+    } catch (error) {
+      console.error("Failed to mark all as read:", error)
+      alert("เกิดข้อผิดพลาด")
+    }
+  }
 
   const handleMarkAsRead = async (alertId: string, isRead: boolean) => {
     setMarkingAsRead(alertId)
@@ -112,17 +179,52 @@ export default function AlertsPage() {
   }
 
   return (
-    <div className="p-8">
-      <div className="flex items-center gap-4 mb-8">
-        <Link href="/admin/dashboard">
-          <Button variant="ghost" size="sm" className="gap-2">
-            <ArrowLeft className="w-4 h-4" />
-            กลับ
+    <div className="p-4 md:p-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div className="flex items-center gap-4">
+          <Link href="/admin/dashboard">
+            <Button variant="ghost" size="sm" className="gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              กลับ
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">ประวัติการแจ้งเตือน</h1>
+            <p className="text-sm text-foreground/60">จัดการและติดตามการแจ้งเตือนทั้งหมด</p>
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            className={`gap-2 ${autoRefresh ? 'text-accent' : ''}`}
+          >
+            {autoRefresh ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+            <span className="hidden sm:inline">{autoRefresh ? 'Auto' : 'Manual'}</span>
           </Button>
-        </Link>
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">ประวัติการแจ้งเตือน</h1>
-          <p className="text-foreground/60">จัดการและติดตามการแจ้งเตือนทั้งหมด</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => mutate()}
+            disabled={isLoading}
+            className="gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">รีเฟรช</span>
+          </Button>
+          {stats.unread > 0 && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleMarkAllAsRead}
+              className="gap-2"
+            >
+              <Check className="w-4 h-4" />
+              <span className="hidden sm:inline">อ่านทั้งหมด</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -158,6 +260,10 @@ export default function AlertsPage() {
                 <SelectItem value="device_offline">อุปกรณ์ออฟไลน์</SelectItem>
                 <SelectItem value="battery_low">แบตเตอรี่ต่ำ</SelectItem>
                 <SelectItem value="error">ข้อผิดพลาด</SelectItem>
+                <SelectItem value="connection_lost">การเชื่อมต่อขาดหาย</SelectItem>
+                <SelectItem value="sensor_error">เซ็นเซอร์ผิดพลาด</SelectItem>
+                <SelectItem value="maintenance_required">ต้องการบำรุงรักษา</SelectItem>
+                <SelectItem value="custom">กำหนดเอง</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -220,17 +326,34 @@ export default function AlertsPage() {
                         {alert.message}
                       </h4>
                       {!alert.is_read && (
-                        <span className="inline-block w-2 h-2 bg-blue-500 rounded-full"></span>
+                        <span className="inline-block w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></span>
                       )}
                     </div>
-                    <p className="text-xs text-foreground/60 mb-2">
-                      {alert.type === "threshold_exceeded" && "เกินค่าขีดจำกัด"}
-                      {alert.type === "device_offline" && "อุปกรณ์ออฟไลน์"}
-                      {alert.type === "battery_low" && "แบตเตอรี่ต่ำ"}
-                      {alert.type === "error" && "ข้อผิดพลาด"}
-                    </p>
+                    
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <Badge variant="outline" className="text-xs">
+                        {alert.devices?.name || 'Unknown Device'}
+                      </Badge>
+                      <span className="text-xs text-foreground/60">
+                        {alert.type === "threshold_exceeded" && "เกินค่าขีดจำกัด"}
+                        {alert.type === "device_offline" && "อุปกรณ์ออฟไลน์"}
+                        {alert.type === "battery_low" && "แบตเตอรี่ต่ำ"}
+                        {alert.type === "error" && "ข้อผิดพลาด"}
+                        {alert.type === "connection_lost" && "การเชื่อมต่อขาดหาย"}
+                        {alert.type === "sensor_error" && "เซ็นเซอร์ผิดพลาด"}
+                        {alert.type === "maintenance_required" && "ต้องการบำรุงรักษา"}
+                        {alert.type === "custom" && "กำหนดเอง"}
+                      </span>
+                    </div>
+                    
                     <p className="text-xs text-foreground/50">
-                      {new Date(alert.created_at).toLocaleString("th-TH")}
+                      {new Date(alert.created_at).toLocaleString("th-TH", {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
                     </p>
                   </div>
 

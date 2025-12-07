@@ -1,7 +1,7 @@
 "use client"
 
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, Wifi, Settings, LogOut } from "lucide-react"
+import { LayoutDashboard, Wifi, Settings, LogOut, MapPin, Activity } from "lucide-react"
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -9,6 +9,8 @@ export function Sidebar() {
 
   const menuItems = [
     { href: "/admin/dashboard", label: "แดชบอร์ด", icon: LayoutDashboard },
+    { href: "/admin/monitoring", label: "ติดตามระบบ", icon: Activity },
+    { href: "/admin/map", label: "แผนที่", icon: MapPin },
     { href: "/admin/devices", label: "จัดการอุปกรณ์", icon: Wifi },
     { href: "/admin/alerts", label: "การแจ้งเตือน", icon: "🔔" },
     { href: "/admin/users", label: "ผู้ใช้", icon: "👥" },

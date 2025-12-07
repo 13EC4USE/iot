@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { createBrowserClient } from "@supabase/ssr"
+import { Power, PowerOff, AlertCircle, CheckCircle2 } from "lucide-react"
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
@@ -16,6 +17,8 @@ export default function SettingsPage() {
   const [apiKey, setApiKey] = useState<string | null>(null)
   const [showApiKey, setShowApiKey] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [isServiceActive, setIsServiceActive] = useState(true)
+  const [lastStatusChange, setLastStatusChange] = useState<Date | null>(null)
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,6 +27,16 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadSettings()
+    // Load service status from localStorage
+    const savedStatus = localStorage.getItem("iot_service_active")
+    if (savedStatus !== null) {
+      setIsServiceActive(JSON.parse(savedStatus))
+    }
+    // Load last status change time
+    const lastChange = localStorage.getItem("iot_last_status_change")
+    if (lastChange) {
+      setLastStatusChange(new Date(lastChange))
+    }
   }, [])
 
   const loadSettings = () => {
@@ -54,6 +67,32 @@ export default function SettingsPage() {
     if (apiKey) {
       navigator.clipboard.writeText(apiKey)
       alert("คัดลอกแล้ว")
+    }
+  }
+
+  const handleStopService = () => {
+    const confirmed = window.confirm(
+      "คุณแน่ใจหรือว่าต้องการหยุดบริการ?\nจะหยุดการส่งคำขอไปยัง Supabase, HiveMQ และ Server\nค่าใช้จ่ายจะหยุดนับ"
+    )
+    if (confirmed) {
+      setIsServiceActive(false)
+      const now = new Date()
+      setLastStatusChange(now)
+      localStorage.setItem("iot_service_active", JSON.stringify(false))
+      localStorage.setItem("iot_last_status_change", now.toISOString())
+    }
+  }
+
+  const handleStartService = () => {
+    const confirmed = window.confirm(
+      "คุณแน่ใจหรือว่าต้องการเริ่มบริการต่อ?\nระบบจะกลับมาทำงานปกติและหากมี request จะเริ่มนับค่าใช้จ่ายอีกครั้ง"
+    )
+    if (confirmed) {
+      setIsServiceActive(true)
+      const now = new Date()
+      setLastStatusChange(now)
+      localStorage.setItem("iot_service_active", JSON.stringify(true))
+      localStorage.setItem("iot_last_status_change", now.toISOString())
     }
   }
 
@@ -143,6 +182,78 @@ export default function SettingsPage() {
 
         {/* Info Panel */}
         <div className="space-y-4">
+          {/* Service Control */}
+          <div className={`rounded-lg p-6 border ${
+            isServiceActive 
+              ? "bg-green-500/10 border-green-500/50" 
+              : "bg-red-500/10 border-red-500/50"
+          }`}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                {isServiceActive ? (
+                  <>
+                    <CheckCircle2 className="w-6 h-6 text-green-500" />
+                    <span className="text-green-400">บริการทำงาน</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="w-6 h-6 text-red-500" />
+                    <span className="text-red-400">บริการหยุด</span>
+                  </>
+                )}
+              </h3>
+            </div>
+
+            <div className="space-y-3 mb-4 text-sm">
+              <div>
+                <p className={isServiceActive ? "text-green-300" : "text-red-300"}>
+                  สถานะ: {isServiceActive ? "✅ ทำงาน" : "⏸️ หยุด"}
+                </p>
+              </div>
+              {lastStatusChange && (
+                <div>
+                  <p className="text-slate-400 text-xs">
+                    เปลี่ยนสถานะล่าสุด:
+                  </p>
+                  <p className={`font-mono text-xs ${isServiceActive ? "text-green-400" : "text-red-400"}`}>
+                    {lastStatusChange.toLocaleString("th-TH")}
+                  </p>
+                </div>
+              )}
+              <div className="pt-2 border-t border-slate-500">
+                <p className="text-slate-400 text-xs">
+                  {isServiceActive 
+                    ? "ระบบกำลังส่ง request ไปยัง Supabase, HiveMQ และ Server"
+                    : "บริการถูกปิด - ไม่มีการส่ง request และไม่มีค่าใช้จ่าย"
+                  }
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {isServiceActive ? (
+                <button
+                  onClick={handleStopService}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-lg transition flex items-center justify-center gap-2"
+                >
+                  <PowerOff className="w-5 h-5" />
+                  หยุดบริการ
+                </button>
+              ) : (
+                <button
+                  onClick={handleStartService}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition flex items-center justify-center gap-2"
+                >
+                  <Power className="w-5 h-5" />
+                  เริ่มบริการ
+                </button>
+              )}
+              <p className="text-xs text-slate-400 text-center">
+                คลิกปุ่มเพื่อเปลี่ยนสถานะบริการ
+              </p>
+            </div>
+          </div>
+
           <div className="bg-slate-700 rounded-lg p-6 border border-slate-600">
             <h3 className="text-lg font-bold text-white mb-4">ข้อมูลระบบ</h3>
 
@@ -154,7 +265,9 @@ export default function SettingsPage() {
 
               <div>
                 <p className="text-slate-400">สถานะเซิร์ฟเวอร์</p>
-                <p className="text-teal-400 font-semibold">ออนไลน์</p>
+                <p className={isServiceActive ? "text-green-400 font-semibold" : "text-red-400 font-semibold"}>
+                  {isServiceActive ? "ออนไลน์ 🟢" : "ปิด 🔴"}
+                </p>
               </div>
 
               <div>

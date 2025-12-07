@@ -13,15 +13,39 @@ interface DonutChartProps {
 }
 
 export function DonutChart({ online, offline, className }: DonutChartProps) {
+  const [isDark, setIsDark] = useState(false)
+
+  // Detect theme changes
+  useEffect(() => {
+    const checkTheme = () => {
+      setIsDark(document.documentElement.classList.contains('dark'))
+    }
+    
+    checkTheme()
+    
+    const observer = new MutationObserver(checkTheme)
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    })
+    
+    return () => observer.disconnect()
+  }, [])
+
   const options: ApexOptions = {
     chart: {
       type: "donut",
-      height: 300
+      height: 300,
+      background: 'transparent',
+      foreColor: isDark ? '#e5e5e5' : '#262422'
     },
     labels: ["ออนไลน์", "ออฟไลน์"],
     colors: ["#10b981", "#ef4444"],
     legend: {
-      position: "bottom"
+      position: "bottom",
+      labels: {
+        colors: isDark ? '#e5e5e5' : '#262422'
+      }
     },
     plotOptions: {
       pie: {
@@ -32,14 +56,30 @@ export function DonutChart({ online, offline, className }: DonutChartProps) {
             total: {
               show: true,
               label: "รวม",
-              fontSize: "16px"
+              fontSize: "16px",
+              color: isDark ? '#e5e5e5' : '#262422'
+            },
+            value: {
+              color: isDark ? '#e5e5e5' : '#262422'
+            },
+            name: {
+              color: isDark ? '#a3a3a3' : '#737373'
             }
           }
         }
       }
     },
     dataLabels: {
-      enabled: true
+      enabled: true,
+      style: {
+        colors: ['#fff']
+      }
+    },
+    tooltip: {
+      theme: isDark ? 'dark' : 'light'
+    },
+    theme: {
+      mode: isDark ? 'dark' : 'light'
     },
     responsive: [
       {

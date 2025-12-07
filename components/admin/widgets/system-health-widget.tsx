@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import useSWR from "swr"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Activity, Database, Radio, Server } from "lucide-react"
 
 interface SystemHealthProps {
   className?: string
+  autoRefreshEnabled?: boolean
 }
 
 interface HealthData {
@@ -22,27 +23,23 @@ interface HealthData {
   }
 }
 
-export function SystemHealthWidget({ className }: SystemHealthProps) {
-  const [health, setHealth] = useState<HealthData | null>(null)
-  const [loading, setLoading] = useState(true)
+const fetcher = (url: string) =>
+  fetch(url).then((res) => res.json())
 
-  useEffect(() => {
-    fetchHealth()
-    const interval = setInterval(fetchHealth, 30000) // Refresh every 30 seconds
-    return () => clearInterval(interval)
-  }, [])
-
-  const fetchHealth = async () => {
-    try {
-      const res = await fetch("/api/stats/system-health")
-      const data = await res.json()
-      setHealth(data)
-    } catch (error) {
-      console.error("Failed to fetch system health:", error)
-    } finally {
-      setLoading(false)
+export function SystemHealthWidget({ className, autoRefreshEnabled = false }: SystemHealthProps) {
+  // Use SWR for system health - reduced from 30s to 60s refresh
+  const { data: health, isLoading: loading } = useSWR(
+    "/api/stats/system-health",
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 120000, // 2 minutes
+      refreshInterval: autoRefreshEnabled ? 300000 : undefined, // 5 minutes if enabled, undefined = disabled
+      errorRetryCount: 2,
+      errorRetryInterval: 30000,
     }
-  }
+  )
 
   if (loading) {
     return (

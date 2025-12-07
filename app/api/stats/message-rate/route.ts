@@ -10,12 +10,29 @@ export async function GET() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+    // Get user's devices first
+    const { data: devices } = await supabase
+      .from("devices")
+      .select("id")
+      .eq("user_id", user.id)
+
+    const deviceIds = devices?.map(d => d.id) || []
+
+    if (deviceIds.length === 0) {
+      return NextResponse.json({
+        messagesPerSecond: 0,
+        messagesToday: 0,
+        lastMinuteCount: 0
+      })
+    }
+
     // Count messages in last minute to calculate msg/s
     const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString()
     
     const { count, error } = await supabase
       .from("sensor_data")
       .select("*", { count: 'exact', head: true })
+      .in("device_id", deviceIds)
       .gte("timestamp", oneMinuteAgo)
 
     if (error) {
@@ -23,7 +40,7 @@ export async function GET() {
     }
 
     // Calculate messages per second
-    const messagesPerSecond = ((count || 0) / 60).toFixed(2)
+    const messagesPerSecond = parseFloat(((count || 0) / 60).toFixed(2))
 
     // Get total messages today
     const todayStart = new Date()
@@ -32,6 +49,7 @@ export async function GET() {
     const { count: todayCount, error: todayError } = await supabase
       .from("sensor_data")
       .select("*", { count: 'exact', head: true })
+      .in("device_id", deviceIds)
       .gte("timestamp", todayStart.toISOString())
 
     if (todayError) {
@@ -39,7 +57,7 @@ export async function GET() {
     }
 
     return NextResponse.json({
-      messagesPerSecond: parseFloat(messagesPerSecond),
+      messagesPerSecond,
       messagesToday: todayCount || 0,
       lastMinuteCount: count || 0
     })

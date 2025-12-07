@@ -1,39 +1,37 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import useSWR from "swr"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { GaugeChart } from "../charts/gauge-chart"
 import { Activity } from "lucide-react"
 
 interface MessageRateWidgetProps {
   className?: string
+  autoRefreshEnabled?: boolean
 }
 
-export function MessageRateWidget({ className }: MessageRateWidgetProps) {
-  const [rate, setRate] = useState(0)
-  const [todayCount, setTodayCount] = useState(0)
-  const [loading, setLoading] = useState(true)
+const fetcher = (url: string) =>
+  fetch(url).then((res) => res.json())
 
-  useEffect(() => {
-    fetchRate()
-    const interval = setInterval(fetchRate, 5000) // Refresh every 5 seconds
-    return () => clearInterval(interval)
-  }, [])
-
-  const fetchRate = async () => {
-    try {
-      const res = await fetch("/api/stats/message-rate")
-      const data = await res.json()
-      setRate(data.messagesPerSecond || 0)
-      setTodayCount(data.messagesToday || 0)
-    } catch (error) {
-      console.error("Failed to fetch message rate:", error)
-    } finally {
-      setLoading(false)
+export function MessageRateWidget({ className, autoRefreshEnabled = false }: MessageRateWidgetProps) {
+  // Use SWR for message rate - optimized for less frequent requests
+  const { data, isLoading } = useSWR(
+    "/api/stats/message-rate",
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 120000, // 2 minutes
+      refreshInterval: autoRefreshEnabled ? 300000 : undefined, // 5 minutes if enabled, undefined = disabled
+      errorRetryCount: 2,
+      errorRetryInterval: 30000,
     }
-  }
+  )
 
-  if (loading) {
+  const rate = data?.messagesPerSecond || 0
+  const todayCount = data?.messagesToday || 0
+
+  if (isLoading) {
     return (
       <Card className={className}>
         <CardHeader>

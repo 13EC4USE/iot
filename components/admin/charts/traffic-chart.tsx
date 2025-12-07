@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import useSWR from "swr"
 import dynamic from "next/dynamic"
 import { ApexOptions } from "apexcharts"
+import { useEffect, useState } from "react"
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false })
 
@@ -10,29 +11,44 @@ interface TrafficChartProps {
   className?: string
 }
 
-export function TrafficChart({ className }: TrafficChartProps) {
-  const [chartData, setChartData] = useState<{ labels: string[]; data: number[] }>({
-    labels: [],
-    data: []
-  })
-  const [loading, setLoading] = useState(true)
+const fetcher = (url: string) =>
+  fetch(url).then((res) => res.json())
 
+export function TrafficChart({ className }: TrafficChartProps) {
+  const [isDark, setIsDark] = useState(false)
+
+  // Detect theme changes
   useEffect(() => {
-    fetchData()
-    const interval = setInterval(fetchData, 60000) // Refresh every minute
-    return () => clearInterval(interval)
+    const checkTheme = () => {
+      setIsDark(document.documentElement.classList.contains('dark'))
+    }
+    
+    checkTheme()
+    
+    const observer = new MutationObserver(checkTheme)
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    })
+    
+    return () => observer.disconnect()
   }, [])
 
-  const fetchData = async () => {
-    try {
-      const res = await fetch("/api/stats/traffic")
-      const data = await res.json()
-      setChartData({ labels: data.labels || [], data: data.data || [] })
-    } catch (error) {
-      console.error("Failed to fetch traffic data:", error)
-    } finally {
-      setLoading(false)
+  // Use SWR for traffic data
+  const { data: trafficData, isLoading: loading } = useSWR(
+    "/api/stats/traffic",
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      dedupingInterval: 60000,
+      refreshInterval: 60000,
     }
+  )
+
+  const chartData = {
+    labels: trafficData?.labels || [],
+    data: trafficData?.data || []
   }
 
   const options: ApexOptions = {
@@ -44,7 +60,9 @@ export function TrafficChart({ className }: TrafficChartProps) {
       },
       zoom: {
         enabled: false
-      }
+      },
+      background: 'transparent',
+      foreColor: isDark ? '#e5e5e5' : '#262422'
     },
     dataLabels: {
       enabled: false
@@ -66,22 +84,43 @@ export function TrafficChart({ className }: TrafficChartProps) {
       categories: chartData.labels,
       labels: {
         rotate: -45,
-        rotateAlways: false
+        rotateAlways: false,
+        style: {
+          colors: isDark ? '#a3a3a3' : '#737373'
+        }
+      },
+      axisBorder: {
+        color: isDark ? '#404040' : '#e0ddd9'
+      },
+      axisTicks: {
+        color: isDark ? '#404040' : '#e0ddd9'
       }
     },
     yaxis: {
       title: {
-        text: "จำนวนข้อความ"
+        text: "จำนวนข้อความ",
+        style: {
+          color: isDark ? '#e5e5e5' : '#262422'
+        }
+      },
+      labels: {
+        style: {
+          colors: isDark ? '#a3a3a3' : '#737373'
+        }
       }
     },
     tooltip: {
       x: {
         format: "HH:mm"
-      }
+      },
+      theme: isDark ? 'dark' : 'light'
     },
     colors: ["#3b82f6"],
     grid: {
-      borderColor: "#f1f1f1"
+      borderColor: isDark ? '#404040' : '#e0ddd9'
+    },
+    theme: {
+      mode: isDark ? 'dark' : 'light'
     }
   }
 

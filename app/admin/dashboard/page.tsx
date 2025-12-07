@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState } from "react"
+import useSWR from "swr"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -57,72 +58,54 @@ function formatRelative(ts?: string | null) {
   return `${diffDay} วันที่แล้ว`
 }
 
+// SWR fetcher
+const fetcher = (url: string) =>
+  fetch(url).then((res) => res.json())
+
 export default function DashboardPage() {
-  const [stats, setStats] = useState<SummaryStats>({
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [customizingDevice, setCustomizingDevice] = useState<RecentDevice | null>(null)
+  const toast = useToast()
+
+  // Use SWR for summary stats - refresh every 10 minutes to minimize server costs
+  const { data: statsData, error: statsError, isLoading: statsLoading, mutate: mutateSummary } = useSWR(
+    "/api/stats/summary",
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 120000, // 2 minutes
+      refreshInterval: 600000, // 10 minutes - minimal server load
+      errorRetryCount: 2,
+      errorRetryInterval: 30000,
+    }
+  )
+
+  // Use SWR for recent devices - refresh every 10 minutes
+  const { data: devicesData, error: devicesError, isLoading: devicesLoading, mutate: mutateDevices } = useSWR(
+    "/api/devices/recent?limit=5&offset=0",
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 120000, // 2 minutes
+      refreshInterval: 600000, // 10 minutes - minimal server load
+      errorRetryCount: 2,
+      errorRetryInterval: 30000,
+    }
+  )
+
+  const stats: SummaryStats = statsData || {
     total: 0,
     online: 0,
     offline: 0,
     messagesToday: 0,
     isAdmin: false
-  })
-  const [recentDevices, setRecentDevices] = useState<RecentDevice[]>([])
-  const [loading, setLoading] = useState(true)
-  const [deviceLoading, setDeviceLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [customizingDevice, setCustomizingDevice] = useState<RecentDevice | null>(null)
-  const toast = useToast()
-
-  // Fetch summary stats
-  const fetchSummary = async () => {
-    try {
-      setLoading(true)
-      const res = await fetch("/api/stats/summary")
-      const data = await res.json()
-      if (res.ok) {
-        setStats(data)
-        setError(null)
-      } else {
-        setError(data.error || "โหลดข้อมูลล้มเหลว")
-      }
-    } catch (err) {
-      setError("เกิดข้อผิดพลาด")
-    } finally {
-      setLoading(false)
-    }
   }
 
-  // Fetch recent 5 devices
-  const fetchRecentDevices = async () => {
-    try {
-      setDeviceLoading(true)
-      const res = await fetch("/api/devices/recent?limit=5&offset=0")
-      const data = await res.json()
-      if (res.ok) {
-        setRecentDevices(data.devices)
-      }
-    } catch (err) {
-      console.error("Failed to fetch recent devices:", err)
-    } finally {
-      setDeviceLoading(false)
-    }
-  }
-
-  // Initial load and refresh interval
-  useEffect(() => {
-    fetchSummary()
-    fetchRecentDevices()
-
-    // Refresh summary every 30 seconds
-    const summaryInterval = setInterval(fetchSummary, 30000)
-    // Refresh devices every 60 seconds
-    const devicesInterval = setInterval(fetchRecentDevices, 60000)
-
-    return () => {
-      clearInterval(summaryInterval)
-      clearInterval(devicesInterval)
-    }
-  }, [])
+  const recentDevices: RecentDevice[] = devicesData?.devices || []
+  const loading = statsLoading || devicesLoading
+  const error = statsError || devicesError
 
   const handleQuickControl = async (deviceId: string, command: string) => {
     try {
@@ -134,8 +117,8 @@ export default function DashboardPage() {
 
       if (res.ok) {
         toast.success(`ส่งคำสั่ง ${command} สำเร็จ`)
-        // Refresh devices list after command
-        setTimeout(fetchRecentDevices, 1000)
+        // Revalidate devices list after command
+        setTimeout(() => mutateDevices(), 1000)
       } else {
         const data = await res.json()
         toast.error(data.error || "ส่งคำสั่งล้มเหลว")
@@ -171,8 +154,8 @@ export default function DashboardPage() {
             <SettingsIcon className="w-4 h-4" /> ตั้งค่า
           </Button>
           <Button variant="ghost" onClick={() => {
-            fetchSummary()
-            fetchRecentDevices()
+            mutateSummary()
+            mutateDevices()
           }} className="gap-2">
             <RefreshCw className="w-4 h-4" /> รีเฟรช
           </Button>
@@ -296,13 +279,13 @@ export default function DashboardPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">อุปกรณ์อัปเดตล่าสุด (แสดง 5 ตัว)</CardTitle>
-              <Button size="sm" variant="ghost" onClick={fetchRecentDevices} className="gap-1">
+              <Button size="sm" variant="ghost" onClick={() => mutateDevices()} className="gap-1">
                 <RefreshCw className="w-4 h-4" /> รีเฟรช
               </Button>
             </div>
           </CardHeader>
           <CardContent>
-            {deviceLoading ? (
+            {devicesLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader className="h-6 w-6 animate-spin" />
               </div>
@@ -412,7 +395,7 @@ export default function DashboardPage() {
           onOpenChange={(open) => !open && setCustomizingDevice(null)}
           device={customizingDevice}
           onSave={() => {
-            fetchRecentDevices()
+            mutateDevices()
             toast.success("การปรับแต่งถูกบันทึกแล้ว")
           }}
         />

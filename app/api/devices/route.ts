@@ -39,40 +39,76 @@ export async function GET() {
       return NextResponse.json([])
     }
 
-    // Compute online/offline based on latest sensor_data timestamp or last_update
     const ONLINE_WINDOW_MS = 5 * 60 * 1000 // 5 minutes
     const deviceIds = devices.map((d) => d.id)
+    const now = Date.now()
 
-    const { data: latestData } = await supabase
-      .from('sensor_data')
-      .select('device_id, timestamp')
-      .in('device_id', deviceIds)
-      .order('timestamp', { ascending: false })
+    // Fetch sensor data and ui_configs in parallel (2 queries instead of 3)
+    const [sensorDataResult, uiConfigsResult] = await Promise.all([
+      supabase
+        .from('sensor_data')
+        .select('device_id, temperature, humidity, value, timestamp')
+        .in('device_id', deviceIds)
+        .order('timestamp', { ascending: false }),
+      supabase
+        .from('device_ui_config')
+        .select('device_id, widget_type, icon, color, min, max, unit')
+        .in('device_id', deviceIds)
+    ])
 
+    // Build maps with deduplication for latest sensor data
+    const sensorDataMap = new Map()
     const lastSeenMap = new Map<string, string>()
-    if (latestData) {
-      for (const row of latestData as { device_id: string; timestamp: string }[]) {
+    
+    if (sensorDataResult.data) {
+      for (const row of sensorDataResult.data as any[]) {
+        if (!sensorDataMap.has(row.device_id)) {
+          sensorDataMap.set(row.device_id, row)
+        }
         if (!lastSeenMap.has(row.device_id)) {
           lastSeenMap.set(row.device_id, row.timestamp)
         }
       }
     }
 
-    const now = Date.now()
-    const enriched = devices.map((d) => {
+    const uiConfigMap = new Map()
+    if (uiConfigsResult.data) {
+      for (const config of uiConfigsResult.data as any[]) {
+        uiConfigMap.set(config.device_id, {
+          widgetType: config.widget_type || 'switch',
+          icon: config.icon || 'zap',
+          color: config.color || 'blue',
+          min: config.min || 0,
+          max: config.max || 100,
+          unit: config.unit || '%',
+        })
+      }
+    }
+
+    // Enrich devices with sensor data, ui_config, and online status
+    const enrichedDevices = devices.map((d) => {
       const lastSeen = lastSeenMap.get(d.id) || d.last_update || d.updated_at
       const lastSeenMs = lastSeen ? new Date(lastSeen).getTime() : null
-      const online = lastSeenMs ? now - lastSeenMs < ONLINE_WINDOW_MS : false
+      const isOnline = lastSeenMs ? now - lastSeenMs < ONLINE_WINDOW_MS : false
 
       return {
         ...d,
-        status_online: online,
+        status_online: isOnline,
         status_last_seen: lastSeen,
         status_source: lastSeenMap.has(d.id) ? 'sensor_data' : 'device_row',
+        lastData: sensorDataMap.get(d.id),
+        ui_config: uiConfigMap.get(d.id) || {
+          widgetType: 'switch',
+          icon: 'zap',
+          color: 'blue',
+          min: 0,
+          max: 100,
+          unit: '%',
+        }
       }
     })
 
-    return NextResponse.json(enriched)
+    return NextResponse.json(enrichedDevices)
   } catch (error: any) {
     console.error('[v0] GET /api/devices error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

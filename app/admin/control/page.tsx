@@ -7,7 +7,7 @@ import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ArrowLeft, Power, Power as Power2, AlertCircle, CheckCircle, Radio, Zap, Loader, Trash2, AlertTriangle } from "lucide-react"
+import { ArrowLeft, Power, Power as Power2, AlertCircle, CheckCircle, Radio, Zap, Loader, Trash2, AlertTriangle, Settings } from "lucide-react"
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 import Link from "next/link"
 import {
@@ -20,6 +20,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export default function DeviceControlPage() {
   const searchParams = useSearchParams()
@@ -50,6 +68,18 @@ export default function DeviceControlPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [controlLoading, setControlLoading] = useState<string | null>(null)
+  
+  // State สำหรับ Sensor Management
+  const [showSensorDialog, setShowSensorDialog] = useState(false)
+  const [editingSensor, setEditingSensor] = useState<any>(null)
+  const [sensorForm, setSensorForm] = useState({
+    name: "",
+    type: "temperature",
+    unit: "°C",
+    icon: "thermometer",
+    color: "blue",
+  })
+  const [savingSensor, setSavingSensor] = useState(false)
 
   // อัพเดท localDevice เมื่อ device data มาถึง
   useEffect(() => {
@@ -102,6 +132,69 @@ export default function DeviceControlPage() {
       setDeleting(false)
       setShowDeleteDialog(false)
     }
+  }
+
+  // Save or update sensor configuration
+  const handleSaveSensor = async () => {
+    if (!deviceId || !sensorForm.name) {
+      toast.error("กรุณากรอกชื่อ sensor")
+      return
+    }
+
+    setSavingSensor(true)
+    try {
+      const response = await fetch(`/api/devices/${deviceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ui_config: {
+            widgetType: "stat",
+            icon: sensorForm.icon,
+            color: sensorForm.color,
+            min: 0,
+            max: 100,
+            unit: sensorForm.unit,
+          }
+        }),
+      })
+
+      if (response.ok) {
+        toast.success("บันทึกการตั้งค่า sensor เรียบร้อย")
+        mutateDevice()
+        setShowSensorDialog(false)
+        setSensorForm({
+          name: "",
+          type: "temperature",
+          unit: "°C",
+          icon: "thermometer",
+          color: "blue",
+        })
+        setEditingSensor(null)
+      } else {
+        const data = await response.json()
+        toast.error(data.error || "เกิดข้อผิดพลาด")
+      }
+    } catch (error) {
+      console.error("Failed to save sensor:", error)
+      toast.error("เกิดข้อผิดพลาดในการบันทึก sensor")
+    } finally {
+      setSavingSensor(false)
+    }
+  }
+
+  // Open sensor dialog for editing
+  const openSensorEditor = () => {
+    if (localDevice?.ui_config) {
+      setSensorForm({
+        name: localDevice.name,
+        type: "temperature",
+        unit: localDevice.ui_config.unit || "°C",
+        icon: localDevice.ui_config.icon || "thermometer",
+        color: localDevice.ui_config.color || "blue",
+      })
+      setEditingSensor(true)
+    }
+    setShowSensorDialog(true)
   }
 
   const handleTogglePower = async () => {
@@ -372,6 +465,42 @@ export default function DeviceControlPage() {
             </Button>
           </Card>
 
+          {/* Sensor Configuration Card */}
+          <Card className="p-6 bg-card border-border">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground">การตั้งค่า Sensor</h3>
+              <Button
+                onClick={openSensorEditor}
+                size="sm"
+                className="bg-blue-500/20 text-blue-500 hover:bg-blue-500/30 gap-2"
+                variant="ghost"
+              >
+                <Settings className="w-4 h-4" />
+                ปรับแต่ง
+              </Button>
+            </div>
+            {localDevice.ui_config && (
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-foreground/60">ประเภท:</span>
+                  <span className="font-medium text-foreground">{localDevice.ui_config.widgetType || "switch"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-foreground/60">ไอคอน:</span>
+                  <span className="font-medium text-foreground">{localDevice.ui_config.icon || "zap"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-foreground/60">สี:</span>
+                  <span className="font-medium text-foreground">{localDevice.ui_config.color || "blue"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-foreground/60">หน่วย:</span>
+                  <span className="font-medium text-foreground">{localDevice.ui_config.unit || "%"}</span>
+                </div>
+              </div>
+            )}
+          </Card>
+
           {/* Real-time Chart */}
           {sensorData && sensorData.length > 0 && (
             <Card className="p-6 bg-card border-border">
@@ -635,6 +764,110 @@ export default function DeviceControlPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Sensor Configuration Dialog */}
+      <Dialog open={showSensorDialog} onOpenChange={setShowSensorDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>ปรับแต่ง Sensor</DialogTitle>
+            <DialogDescription>
+              ตั้งค่า sensor และการแสดงผลของอุปกรณ์นี้
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="sensor-name">ชื่อ Sensor</Label>
+              <Input
+                id="sensor-name"
+                value={sensorForm.name}
+                onChange={(e) => setSensorForm({ ...sensorForm, name: e.target.value })}
+                placeholder="เช่น Temperature Sensor"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="sensor-type">ประเภท Sensor</Label>
+              <Select value={sensorForm.type} onValueChange={(value) => setSensorForm({ ...sensorForm, type: value })}>
+                <SelectTrigger id="sensor-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="temperature">Temperature (อุณหภูมิ)</SelectItem>
+                  <SelectItem value="humidity">Humidity (ความชื้น)</SelectItem>
+                  <SelectItem value="pressure">Pressure (ความดัน)</SelectItem>
+                  <SelectItem value="light">Light (แสง)</SelectItem>
+                  <SelectItem value="motion">Motion (การเคลื่อนไหว)</SelectItem>
+                  <SelectItem value="distance">Distance (ระยะทาง)</SelectItem>
+                  <SelectItem value="energy">Energy (พลังงาน)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="sensor-unit">หน่วย</Label>
+              <Input
+                id="sensor-unit"
+                value={sensorForm.unit}
+                onChange={(e) => setSensorForm({ ...sensorForm, unit: e.target.value })}
+                placeholder="เช่น °C, %, ppm"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="sensor-icon">ไอคอน</Label>
+              <Select value={sensorForm.icon} onValueChange={(value) => setSensorForm({ ...sensorForm, icon: value })}>
+                <SelectTrigger id="sensor-icon">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="thermometer">Thermometer</SelectItem>
+                  <SelectItem value="droplets">Droplets</SelectItem>
+                  <SelectItem value="gauge">Gauge</SelectItem>
+                  <SelectItem value="sun">Sun</SelectItem>
+                  <SelectItem value="wind">Wind</SelectItem>
+                  <SelectItem value="zap">Zap</SelectItem>
+                  <SelectItem value="activity">Activity</SelectItem>
+                  <SelectItem value="battery">Battery</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="sensor-color">สี</Label>
+              <Select value={sensorForm.color} onValueChange={(value) => setSensorForm({ ...sensorForm, color: value })}>
+                <SelectTrigger id="sensor-color">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="blue">Blue (น้ำเงิน)</SelectItem>
+                  <SelectItem value="green">Green (เขียว)</SelectItem>
+                  <SelectItem value="red">Red (แดง)</SelectItem>
+                  <SelectItem value="orange">Orange (ส้ม)</SelectItem>
+                  <SelectItem value="purple">Purple (ม่วง)</SelectItem>
+                  <SelectItem value="yellow">Yellow (เหลือง)</SelectItem>
+                  <SelectItem value="pink">Pink (ชมพู)</SelectItem>
+                  <SelectItem value="cyan">Cyan (ฟ้า)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">ยกเลิก</Button>
+            </DialogClose>
+            <Button
+              onClick={handleSaveSensor}
+              disabled={savingSensor}
+              className="bg-blue-500 hover:bg-blue-600"
+            >
+              {savingSensor ? "กำลังบันทึก..." : "บันทึก"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
+

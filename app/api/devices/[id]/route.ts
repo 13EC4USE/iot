@@ -58,13 +58,27 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const isAdmin = isSuperAdmin(user.email)
     const body = await request.json()
 
+    // Build update object - only include provided fields
+    const updateData: any = {
+      updated_at: new Date().toISOString(),
+    }
+    
+    // Allowed fields to update
+    const allowedFields = [
+      'name', 'type', 'location', 'latitude', 'longitude', 
+      'mac_address', 'mqtt_topic', 'is_active', 'battery_level', 'ui_config'
+    ]
+    
+    allowedFields.forEach(field => {
+      if (body[field] !== undefined) {
+        updateData[field] = body[field]
+      }
+    })
+
     // Admin can update any device, regular user can only update their own
     let query = supabase
       .from("devices")
-      .update({
-        ...body,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq("id", id)
     
     if (!isAdmin) {
@@ -81,6 +95,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
+}
+
+// =================================================
+// PATCH /api/devices/[id] - Partial update (same as PUT for now)
+// =================================================
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  return PUT(request, { params })
 }
 
 // =================================================

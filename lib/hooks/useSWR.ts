@@ -1,18 +1,38 @@
 "use client"
 
 import useSWR from "swr"
+import { shouldMakeRequest } from "./useServiceStatus"
 
-const fetcher = (url: string) =>
-  fetch(url, { cache: "no-store" }).then((res) => res.json())
+// Optimized fetcher with cache support
+const fetcher = (url: string) => {
+  // Check if service is active before making requests
+  if (!shouldMakeRequest()) {
+    return new Promise(() => {}) // Never resolves - prevents requests
+  }
+  return fetch(url, { cache: "no-store" }).then((res) => res.json())
+}
+
+// Shared SWR config for optimal performance and minimal server cost
+const swrConfig = {
+  revalidateOnFocus: false,    // Don't refresh when tab regains focus
+  revalidateOnReconnect: false, // Don't refresh when connection restored - save costs
+  dedupingInterval: 120000,    // Share cache for 2 minutes - prevent duplicate requests
+  focusThrottleInterval: 600000, // Throttle focus revalidation to 10 minutes
+  errorRetryCount: 2,
+  errorRetryInterval: 30000,
+}
 
 // ---------------------------------------------
 // 🔹 1) ดึงอุปกรณ์ทั้งหมด
 // ---------------------------------------------
 export function useDevices() {
-  const { data, error, isLoading, mutate } = useSWR("/api/devices", fetcher)
+  const { data, error, isLoading, mutate } = useSWR("/api/devices", fetcher, {
+    ...swrConfig,
+    refreshInterval: 600000, // 10 minutes - minimal API calls
+  })
 
   return {
-    devices: data ?? [],    // (สำคัญ!) ป้องกัน filter error
+    devices: data ?? [],
     error,
     isLoading,
     mutate,
@@ -25,7 +45,8 @@ export function useDevices() {
 export function useDevice(id: string | null) {
   const { data, error, isLoading, mutate } = useSWR(
     id ? `/api/devices/${id}` : null,
-    fetcher
+    fetcher,
+    swrConfig
   )
 
   return {
@@ -42,12 +63,16 @@ export function useDevice(id: string | null) {
 export function useDeviceData(deviceId: string | null, range = "24h") {
   const { data, error, isLoading, mutate } = useSWR(
     deviceId ? `/api/devices/${deviceId}/data?range=${range}` : null,
-    fetcher
+    fetcher,
+    {
+      ...swrConfig,
+      refreshInterval: 300000, // 5 minutes - balance between freshness and cost
+    }
   )
 
   return {
-    data: data?.data ?? [],   // API ใหม่ส่ง { data: [...] }
-    meta: data ?? null,       // ถ้าต้องใช้ range, count
+    data: data?.data ?? [],
+    meta: data ?? null,
     error,
     isLoading,
     mutate,
@@ -60,7 +85,11 @@ export function useDeviceData(deviceId: string | null, range = "24h") {
 export function useDeviceSettings(deviceId: string | null) {
   const { data, error, isLoading, mutate } = useSWR(
     deviceId ? `/api/devices/${deviceId}/settings` : null,
-    fetcher
+    fetcher,
+    {
+      ...swrConfig,
+      refreshInterval: 600000, // 10 minutes - rarely changes
+    }
   )
 
   return {

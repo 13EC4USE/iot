@@ -3,74 +3,116 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ========================================
+   LIGHT THEME (Default)
+   ======================================== */
 :root {
-  --background: oklch(0.12 0 0);
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.16 0 0);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.16 0 0);
-  --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.3 0.15 250);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.18 0 0);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.22 0 0);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.58 0.18 190);
-  --accent-foreground: oklch(0.12 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.25 0 0);
-  --input: oklch(0.22 0 0);
-  --ring: oklch(0.58 0.18 190);
+  /* Backgrounds */
+  --background: oklch(0.98 0 0);              /* White background */
+  --card: oklch(1 0 0);                        /* Pure white cards */
+  --popover: oklch(1 0 0);                     /* Pure white popovers */
+  
+  /* Text Colors */
+  --foreground: oklch(0.15 0 0);              /* Dark text */
+  --card-foreground: oklch(0.15 0 0);         /* Dark text on cards */
+  --popover-foreground: oklch(0.15 0 0);      /* Dark text on popovers */
+  --muted-foreground: oklch(0.45 0 0);        /* Gray text */
+  
+  /* Primary Colors */
+  --primary: oklch(0.45 0.15 250);            /* Blue primary */
+  --primary-foreground: oklch(0.98 0 0);      /* White on primary */
+  
+  /* Secondary Colors */
+  --secondary: oklch(0.95 0 0);               /* Light gray secondary */
+  --secondary-foreground: oklch(0.15 0 0);    /* Dark text on secondary */
+  
+  /* Accent Colors */
+  --accent: oklch(0.58 0.18 190);             /* Teal accent */
+  --accent-foreground: oklch(0.98 0 0);       /* White on accent */
+  
+  /* Borders & Inputs */
+  --border: oklch(0.88 0 0);                  /* Light gray border */
+  --input: oklch(0.95 0 0);                   /* Light gray input */
+  --ring: oklch(0.58 0.18 190);               /* Teal focus ring */
+  --muted: oklch(0.95 0 0);                   /* Light muted background */
+  
+  /* Destructive */
+  --destructive: oklch(0.577 0.245 27.325);   /* Red */
+  --destructive-foreground: oklch(0.98 0 0);  /* White on red */
+  
+  /* Charts */
   --chart-1: oklch(0.58 0.18 190);
   --chart-2: oklch(0.65 0.15 250);
   --chart-3: oklch(0.7 0.12 40);
   --chart-4: oklch(0.55 0.2 330);
   --chart-5: oklch(0.6 0.16 280);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.16 0 0);
-  --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.58 0.18 190);
-  --sidebar-primary-foreground: oklch(0.12 0 0);
-  --sidebar-accent: oklch(0.25 0 0);
-  --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(0.25 0 0);
+  
+  /* Sidebar */
+  --sidebar: oklch(1 0 0);                     /* White sidebar */
+  --sidebar-foreground: oklch(0.15 0 0);       /* Dark text in sidebar */
+  --sidebar-primary: oklch(0.58 0.18 190);     /* Teal sidebar primary */
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent: oklch(0.95 0 0);           /* Light sidebar accent */
+  --sidebar-accent-foreground: oklch(0.15 0 0);
+  --sidebar-border: oklch(0.88 0 0);           /* Light sidebar border */
   --sidebar-ring: oklch(0.58 0.18 190);
+  
+  /* Other */
+  --radius: 0.625rem;
 }
 
+/* ========================================
+   DARK THEME
+   ======================================== */
 .dark {
-  --background: oklch(0.12 0 0);
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.16 0 0);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.16 0 0);
-  --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.3 0.15 250);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.18 0 0);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.22 0 0);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.58 0.18 190);
-  --accent-foreground: oklch(0.12 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.25 0 0);
-  --input: oklch(0.22 0 0);
-  --ring: oklch(0.58 0.18 190);
+  /* Backgrounds */
+  --background: oklch(0.12 0 0);              /* Very dark background */
+  --card: oklch(0.16 0 0);                    /* Dark cards */
+  --popover: oklch(0.16 0 0);                 /* Dark popovers */
+  
+  /* Text Colors */
+  --foreground: oklch(0.98 0 0);              /* White text */
+  --card-foreground: oklch(0.98 0 0);         /* White text on cards */
+  --popover-foreground: oklch(0.98 0 0);      /* White text on popovers */
+  --muted-foreground: oklch(0.65 0 0);        /* Gray text */
+  
+  /* Primary Colors */
+  --primary: oklch(0.3 0.15 250);             /* Blue primary */
+  --primary-foreground: oklch(0.98 0 0);      /* White on primary */
+  
+  /* Secondary Colors */
+  --secondary: oklch(0.18 0 0);               /* Dark secondary */
+  --secondary-foreground: oklch(0.98 0 0);    /* White on secondary */
+  
+  /* Accent Colors */
+  --accent: oklch(0.58 0.18 190);             /* Teal accent */
+  --accent-foreground: oklch(0.12 0 0);       /* Dark on accent */
+  
+  /* Borders & Inputs */
+  --border: oklch(0.25 0 0);                  /* Dark border */
+  --input: oklch(0.22 0 0);                   /* Dark input */
+  --ring: oklch(0.58 0.18 190);               /* Teal focus ring */
+  --muted: oklch(0.22 0 0);                   /* Dark muted background */
+  
+  /* Destructive */
+  --destructive: oklch(0.396 0.141 25.723);   /* Dark red */
+  --destructive-foreground: oklch(0.98 0 0);  /* White on red */
+  
+  /* Charts */
   --chart-1: oklch(0.58 0.18 190);
   --chart-2: oklch(0.65 0.15 250);
   --chart-3: oklch(0.7 0.12 40);
   --chart-4: oklch(0.55 0.2 330);
   --chart-5: oklch(0.6 0.16 280);
-  --sidebar: oklch(0.16 0 0);
-  --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.58 0.18 190);
+  
+  /* Sidebar */
+  --sidebar: oklch(0.16 0 0);                 /* Dark sidebar */
+  --sidebar-foreground: oklch(0.98 0 0);      /* White text in sidebar */
+  --sidebar-primary: oklch(0.58 0.18 190);    /* Teal sidebar primary */
   --sidebar-primary-foreground: oklch(0.12 0 0);
-  --sidebar-accent: oklch(0.25 0 0);
+  --sidebar-accent: oklch(0.25 0 0);          /* Dark sidebar accent */
   --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(0.25 0 0);
+  --sidebar-border: oklch(0.25 0 0);          /* Dark sidebar border */
   --sidebar-ring: oklch(0.58 0.18 190);
 }
 
@@ -122,4 +164,18 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* ========================================
+   Leaflet Map Theme Adjustments
+   ======================================== */
+
+/* Light Theme - Keep map bright and clear */
+.map-tiles {
+  filter: brightness(1) contrast(1) saturate(1);
+}
+
+/* Dark Theme - Invert and adjust map colors */
+.dark .map-tiles {
+  filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
 }

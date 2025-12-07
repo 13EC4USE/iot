@@ -32,7 +32,9 @@ export async function GET(request: NextRequest) {
         devices!inner (
           id,
           user_id,
-          name
+          name,
+          type,
+          location
         )
       `
       ) // INNER JOIN enforces correct user restrictions

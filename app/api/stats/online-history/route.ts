@@ -10,41 +10,41 @@ export async function GET() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    // Get device online status for last 7 days
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-    
+    // Get all devices for the user
     const { data: devices, error } = await supabase
       .from("devices")
-      .select("id, last_update")
+      .select("id, last_update, is_active")
       .eq("user_id", user.id)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Group by day - count how many devices were online each day
-    const dailyData = new Array(7).fill(0)
     const now = new Date()
-    
-    devices?.forEach((device) => {
-      if (!device.last_update) return
-      
-      const lastUpdate = new Date(device.last_update)
-      const daysDiff = Math.floor((now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60 * 24))
-      
-      // Count as online for all days since last update until now
-      for (let i = daysDiff; i < 7; i++) {
-        if (i >= 0 && i < 7) {
-          dailyData[6 - i]++
-        }
-      }
-    })
+    const dailyData: number[] = []
+    const labels: string[] = []
 
-    // Generate labels (last 7 days)
-    const labels = Array.from({ length: 7 }, (_, i) => {
-      const date = new Date(now.getTime() - (6 - i) * 24 * 60 * 60 * 1000)
-      return date.toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })
-    })
+    // Generate data for last 7 days
+    for (let i = 6; i >= 0; i--) {
+      const targetDate = new Date(now)
+      targetDate.setDate(targetDate.getDate() - i)
+      targetDate.setHours(23, 59, 59, 999) // End of day
+
+      const startOfDay = new Date(targetDate)
+      startOfDay.setHours(0, 0, 0, 0)
+
+      // Count devices that were online on this day
+      // (last_update within this day OR after this day)
+      const onlineCount = devices?.filter((device) => {
+        if (!device.last_update || !device.is_active) return false
+        const lastUpdate = new Date(device.last_update)
+        // Device is online if it updated on or after the start of this day
+        return lastUpdate >= startOfDay
+      }).length || 0
+
+      dailyData.push(onlineCount)
+      labels.push(targetDate.toLocaleDateString('th-TH', { month: 'short', day: 'numeric' }))
+    }
 
     return NextResponse.json({
       labels,

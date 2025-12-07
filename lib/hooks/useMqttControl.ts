@@ -39,13 +39,6 @@ export function useMqttControl() {
    */
   const publishControl = useCallback(
     async (deviceId: string, topic: string, payload: any, options?: { showToast?: boolean }) => {
-      // Check MQTT connection
-      if (!isMqttConnected()) {
-        toast.error("Cannot send command: MQTT Disconnected")
-        console.error("[useMqttControl] MQTT not connected")
-        return false
-      }
-
       try {
         const message = JSON.stringify(payload)
         

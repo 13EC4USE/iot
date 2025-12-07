@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import useSWR from "swr"
 import dynamic from "next/dynamic"
 import { ApexOptions } from "apexcharts"
+import { useEffect, useState } from "react"
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false })
 
@@ -10,27 +11,44 @@ interface OnlineHistoryChartProps {
   className?: string
 }
 
-export function OnlineHistoryChart({ className }: OnlineHistoryChartProps) {
-  const [chartData, setChartData] = useState<{ labels: string[]; data: number[] }>({
-    labels: [],
-    data: []
-  })
-  const [loading, setLoading] = useState(true)
+const fetcher = (url: string) =>
+  fetch(url).then((res) => res.json())
 
+export function OnlineHistoryChart({ className }: OnlineHistoryChartProps) {
+  const [isDark, setIsDark] = useState(false)
+
+  // Detect theme changes
   useEffect(() => {
-    fetchData()
+    const checkTheme = () => {
+      setIsDark(document.documentElement.classList.contains('dark'))
+    }
+    
+    checkTheme()
+    
+    const observer = new MutationObserver(checkTheme)
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    })
+    
+    return () => observer.disconnect()
   }, [])
 
-  const fetchData = async () => {
-    try {
-      const res = await fetch("/api/stats/online-history")
-      const data = await res.json()
-      setChartData({ labels: data.labels || [], data: data.data || [] })
-    } catch (error) {
-      console.error("Failed to fetch online history:", error)
-    } finally {
-      setLoading(false)
+  // Use SWR for online history data
+  const { data: trafficData, isLoading: loading } = useSWR(
+    "/api/stats/online-history",
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      dedupingInterval: 60000,
+      refreshInterval: 300000, // 5 minutes - historical data changes slowly
     }
+  )
+
+  const chartData = {
+    labels: trafficData?.labels || [],
+    data: trafficData?.data || []
   }
 
   const options: ApexOptions = {
@@ -39,7 +57,9 @@ export function OnlineHistoryChart({ className }: OnlineHistoryChartProps) {
       height: 300,
       toolbar: {
         show: false
-      }
+      },
+      background: 'transparent',
+      foreColor: isDark ? '#e5e5e5' : '#262422'
     },
     plotOptions: {
       bar: {
@@ -51,16 +71,41 @@ export function OnlineHistoryChart({ className }: OnlineHistoryChartProps) {
       enabled: false
     },
     xaxis: {
-      categories: chartData.labels
+      categories: chartData.labels,
+      labels: {
+        style: {
+          colors: isDark ? '#a3a3a3' : '#737373'
+        }
+      },
+      axisBorder: {
+        color: isDark ? '#404040' : '#e0ddd9'
+      },
+      axisTicks: {
+        color: isDark ? '#404040' : '#e0ddd9'
+      }
     },
     yaxis: {
       title: {
-        text: "อุปกรณ์ออนไลน์"
+        text: "อุปกรณ์ออนไลน์",
+        style: {
+          color: isDark ? '#e5e5e5' : '#262422'
+        }
+      },
+      labels: {
+        style: {
+          colors: isDark ? '#a3a3a3' : '#737373'
+        }
       }
+    },
+    tooltip: {
+      theme: isDark ? 'dark' : 'light'
     },
     colors: ["#10b981"],
     grid: {
-      borderColor: "#f1f1f1"
+      borderColor: isDark ? '#404040' : '#e0ddd9'
+    },
+    theme: {
+      mode: isDark ? 'dark' : 'light'
     }
   }
 
