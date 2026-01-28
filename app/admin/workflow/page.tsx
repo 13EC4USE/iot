@@ -322,11 +322,28 @@ export default function WorkflowPage() {
           <CardDescription>แสดงข้อมูลที่บันทึกใน Supabase แบบเรียลไทม์</CardDescription>
         </CardHeader>
         <CardContent>
-          {recentMessages.length === 0 ? (
+          {loading && (
             <div className="text-center py-8 text-muted-foreground">
-              ไม่พบข้อมูล sensor ในระบบ
+              🔄 กำลังโหลดข้อมูล...
             </div>
-          ) : (
+          )}
+          {!loading && recentMessages.length === 0 && (
+            <div className="space-y-4">
+              <div className="text-center py-8 text-muted-foreground">
+                ❌ ไม่พบข้อมูล sensor ในระบบ
+              </div>
+              <div className="bg-yellow-50 dark:bg-yellow-950 p-4 rounded text-sm text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-800">
+                <p className="font-semibold mb-2">📋 ตรวจสอบสิ่งต่อไปนี้:</p>
+                <ul className="space-y-1 text-xs">
+                  <li>✓ ESP32 ส่งข้อมูลไปที่ MQTT (sensors/ammonia topic)</li>
+                  <li>✓ Pi data_logger กำลังรัน และรับข้อมูล</li>
+                  <li>✓ ข้อมูลบันทึกใน Supabase sensor_data table</li>
+                  <li>✓ ลองเปิด /api/debug/sensor-data เพื่อทดสอบ</li>
+                </ul>
+              </div>
+            </div>
+          )}
+          {!loading && recentMessages.length > 0 && (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
