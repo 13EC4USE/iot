@@ -56,9 +56,16 @@ export default function WorkflowPage() {
     try {
       // ดึงข้อมูล sensor_data ล่าสุดจาก Supabase
       const sensorRes = await fetch('/api/devices/sensor-data?limit=10')
+      
+      if (!sensorRes.ok) {
+        console.error('Failed to fetch sensor data:', sensorRes.status)
+        throw new Error(`API error: ${sensorRes.status}`)
+      }
+      
       const sensorDataResponse = await sensorRes.json()
       const sensorData = Array.isArray(sensorDataResponse) ? sensorDataResponse : sensorDataResponse.data || []
       
+      console.log('Sensor data received:', sensorData.length, 'records')
       setRecentMessages(sensorData)
 
       // คำนวณสถานะแต่ละขั้น
@@ -166,9 +173,12 @@ export default function WorkflowPage() {
 
   // Format datetime to DD/MM/YYYY HH:mm:ss (Bangkok time = UTC+7, AD)
   const formatDateTime = (timestamp?: string) => {
-    if (!timestamp) return 'ไม่ทราบ'
+    if (!timestamp || timestamp === 'ไม่ทราบ' || timestamp === 'ยังไม่มีข้อมูล') return 'ไม่มีข้อมูล'
     try {
       const date = new Date(timestamp)
+      if (isNaN(date.getTime())) return 'ไม่มีข้อมูล'
+      
+      // แปลงเป็น Bangkok time (UTC+7)
       const bangkokTime = new Date(date.getTime() + (7 * 60 * 60 * 1000))
       const day = String(bangkokTime.getUTCDate()).padStart(2, '0')
       const month = String(bangkokTime.getUTCMonth() + 1).padStart(2, '0')
@@ -178,7 +188,7 @@ export default function WorkflowPage() {
       const seconds = String(bangkokTime.getUTCSeconds()).padStart(2, '0')
       return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`
     } catch {
-      return timestamp
+      return 'ไม่มีข้อมูล'
     }
   }
 
