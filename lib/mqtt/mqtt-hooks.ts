@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import type { MqttClient } from "mqtt"
-import { createMqttClient } from "./mqtt-service"
+import { getMqttClient } from "./client"
 
 interface MqttSubscriptionOptions {
   topic: string
@@ -15,23 +15,26 @@ export function useMqttSubscription(topic: string, callback?: (message: string) 
   const clientRef = useRef<MqttClient | null>(null)
 
   useEffect(() => {
-    const setupMqtt = async () => {
+    const setupMqtt = () => {
       try {
-        const client = await createMqttClient()
+        const client = getMqttClient()
+        if (!client) return
+        
         clientRef.current = client
 
         client.on("connect", () => {
-          console.log("[v0] MQTT connected")
+          console.log("[MQTT] connected")
           setIsConnected(true)
           client.subscribe(topic, { qos: 1 })
         })
 
         client.on("message", (receivedTopic: string, message: Buffer) => {
-          if (receivedTopic === topic) {
+          if (receivedTopic === topic || receivedTopic.match(topic.replace(/#/g, '.*').replace(/\+/g, '[^/]+'))) {
             const messageStr = message.toString()
             setData(messageStr)
             callback?.(messageStr)
-            // Send payload to server ingest endpoint so server-side can persist to DB
+            
+            // Send payload to server ingest endpoint
             try {
               const parsed = (() => {
                 try { return JSON.parse(messageStr) } catch { return messageStr }
@@ -41,23 +44,23 @@ export function useMqttSubscription(topic: string, callback?: (message: string) 
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ topic: receivedTopic, payload: parsed }),
-              }).catch((e) => console.error('[v0] Failed to POST mqtt ingest:', e))
+              }).catch((e) => console.error('[MQTT] Failed to POST ingest:', e))
             } catch (e) {
-              console.error('[v0] Error preparing mqtt ingest request:', e)
+              console.error('[MQTT] Error preparing ingest request:', e)
             }
           }
         })
 
         client.on("disconnect", () => {
-          console.log("[v0] MQTT disconnected")
+          console.log("[MQTT] disconnected")
           setIsConnected(false)
         })
 
         client.on("error", (error) => {
-          console.error("[v0] MQTT error:", error)
+          console.error("[MQTT] error:", error)
         })
       } catch (error) {
-        console.error("[v0] Failed to setup MQTT:", error)
+        console.error("[MQTT] Failed to setup:", error)
       }
     }
 
@@ -88,9 +91,11 @@ export function useMqttPublish() {
   const clientRef = useRef<MqttClient | null>(null)
 
   useEffect(() => {
-    const setupMqtt = async () => {
+    const setupMqtt = () => {
       try {
-        const client = await createMqttClient()
+        const client = getMqttClient()
+        if (!client) return
+        
         clientRef.current = client
 
         client.on("connect", () => {
@@ -101,7 +106,7 @@ export function useMqttPublish() {
           setIsConnected(false)
         })
       } catch (error) {
-        console.error("[v0] Failed to setup MQTT:", error)
+        console.error("[MQTT] Failed to setup:", error)
       }
     }
 
@@ -116,7 +121,7 @@ export function useMqttPublish() {
 
   const publish = async (topic: string, message: string | object) => {
     if (!clientRef.current?.connected) {
-      console.error("[v0] MQTT not connected")
+      console.error("[MQTT] not connected")
       return false
     }
 
@@ -125,7 +130,7 @@ export function useMqttPublish() {
       clientRef.current.publish(topic, payload, { qos: 1 })
       return true
     } catch (error) {
-      console.error("[v0] Publish error:", error)
+      console.error("[MQTT] Publish error:", error)
       return false
     }
   }

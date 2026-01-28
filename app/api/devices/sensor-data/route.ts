@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { isSuperAdmin } from '@/lib/utils/admin'
 
 export async function GET() {
@@ -16,10 +16,11 @@ export async function GET() {
     }
 
     const isAdmin = isSuperAdmin(user.email)
+    const queryClient = isAdmin ? createAdminClient() : supabase
 
     // Get latest sensor data for each device
     // First, get the devices the user has access to
-    let devicesQuery = supabase.from('devices').select('id, user_id')
+    let devicesQuery = queryClient.from('devices').select('id, user_id')
     
     if (!isAdmin) {
       devicesQuery = devicesQuery.eq('user_id', user.id)
@@ -32,37 +33,32 @@ export async function GET() {
     }
 
     if (!devices || devices.length === 0) {
-      return NextResponse.json([])
+      return NextResponse.json({
+        data: [],
+        count: 0
+      })
     }
 
     const deviceIds = devices.map((d) => d.id)
 
     // Get the latest sensor data for each device
-    const { data: sensorData, error: sensorError } = await supabase
+    const { data: sensorData, error: sensorError } = await queryClient
       .from('sensor_data')
-      .select('device_id, temperature, humidity, timestamp')
+      .select('*')
       .in('device_id', deviceIds)
       .order('timestamp', { ascending: false })
+      .limit(50)
 
     if (sensorError) {
       return NextResponse.json({ error: sensorError.message }, { status: 500 })
     }
 
-    // Get only the latest reading for each device
-    const latestDataMap = new Map()
-    if (sensorData) {
-      for (const data of sensorData) {
-        if (!latestDataMap.has(data.device_id)) {
-          latestDataMap.set(data.device_id, data)
-        }
-      }
-    }
-
-    const result = Array.from(latestDataMap.values())
-
-    return NextResponse.json(result)
+    return NextResponse.json({
+      data: sensorData || [],
+      count: sensorData?.length || 0
+    })
   } catch (error: any) {
-    console.error('[v0] GET /api/devices/sensor-data error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Sensor data error:', error)
+    return NextResponse.json({ error: error?.message || 'Internal server error' }, { status: 500 })
   }
 }

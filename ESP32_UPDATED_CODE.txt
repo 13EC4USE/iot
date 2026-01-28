@@ -1,0 +1,109 @@
+/*
+ * ESP32 Code - อัปเดตสำหรับใช้กับ Raspberry Pi Broker
+ * เปลี่ยนจากเดิม:
+ *   - Topic: sensors/ammonia → iot/{DEVICE_ID}/ammonia
+ *   - Broker: ตั้งค่าผ่าน WiFiManager (ให้ชี้ไป IP ของ Pi)
+ * 
+ * แก้เฉพาะฟังก์ชัน measureAndSendData() และ reconnectMQTT()
+ */
+
+// ===== เพิ่ม/แก้ไขส่วนนี้ =====
+
+void reconnectMQTT() {
+  // ใช้ DEVICE_ID เป็น Client ID เพื่อไม่ให้ซ้ำ
+  if (client.connect(DEVICE_ID)) {
+    Serial.println("MQTT Connected");
+    Serial.print("Client ID: ");
+    Serial.println(DEVICE_ID);
+    Serial.print("Broker: ");
+    Serial.println(mqtt_server);
+  } else {
+    Serial.print("MQTT Connect failed, rc=");
+    Serial.println(client.state());
+  }
+}
+
+void measureAndSendData() {
+  float t, h;
+  if (!readTemperatureAndHumidity(t, h)) { 
+    t = lastTemperature; 
+    h = lastHumidity; 
+  }
+  
+  float rs = getSensorResistance();
+  float compRs = compensateRsForTemperatureAndHumidity(rs, t, h);
+  float ratio = compRs / Ro;
+  float ppm = getPPM(ratio);
+  
+  // แสดงผลบนจอ OLED
+  display.clearDisplay();
+  display.setCursor(0,0);
+  display.print(DEVICE_ID); // โชว์ชื่อเครื่อง
+  display.setCursor(0,15);
+  display.print("NH3: "); 
+  display.print(ppm, 1); 
+  display.println(" ppm");
+  display.print("T: "); 
+  display.print(t, 1); 
+  display.print("C H: "); 
+  display.print(h, 0); 
+  display.println("%");
+  display.display();
+  delay(3000);
+
+  // สร้าง JSON payload
+  StaticJsonDocument<256> doc;
+  doc["id"] = DEVICE_ID;
+  doc["ammonia"] = ppm;
+  doc["temperature"] = t;
+  doc["humidity"] = h;
+  doc["calibratedRo"] = Ro;
+  doc["timestamp"] = millis(); // หรือใช้ RTC ถ้ามี
+  
+  char jsonBuffer[256];
+  serializeJson(doc, jsonBuffer);
+  
+  // สร้าง topic ใหม่: iot/{DEVICE_ID}/ammonia
+  char topic[64];
+  snprintf(topic, sizeof(topic), "iot/%s/ammonia", DEVICE_ID);
+  
+  // เชื่อมต่อและ publish
+  if (!client.connected()) {
+    reconnectMQTT();
+  }
+  
+  if (client.connected()) {
+    bool success = client.publish(topic, jsonBuffer);
+    if (success) {
+      Serial.println("✅ Published successfully");
+      Serial.print("Topic: ");
+      Serial.println(topic);
+      Serial.print("Payload: ");
+      Serial.println(jsonBuffer);
+    } else {
+      Serial.println("❌ Publish failed");
+    }
+  } else {
+    Serial.println("❌ MQTT not connected");
+  }
+}
+
+// ===== จบส่วนที่แก้ =====
+
+/*
+ * วิธีใช้:
+ * 1. แทนที่ฟังก์ชัน measureAndSendData() และ reconnectMQTT() ในโค้ดเดิม
+ * 2. Upload ลง ESP32
+ * 3. กดปุ่มเข้า WiFi Config (ถ้าต้องการเปลี่ยน broker)
+ *    - เชื่อมต่อ WiFi: MQ137-Setup / password
+ *    - ใส่ MQTT Server IP = IP ของ Raspberry Pi (เช่น 192.168.1.100)
+ *    - Sleep Time = 5-30 นาที (ตามต้องการ)
+ * 4. รีสตาร์ท ESP32 → ควรเห็น log "Published successfully"
+ * 5. เช็คบน Pi: mosquitto_sub -h localhost -t "iot/#" -v
+ * 6. เช็คบนเว็บ: http://localhost:3000/admin/telemetry
+ * 
+ * หมายเหตุ:
+ * - DEVICE_ID คือ "Station_1", "Station_2", ... (ตั้งที่ต้นไฟล์)
+ * - Payload format เดิมยังใช้ได้ เพียงแต่เปลี่ยน topic
+ * - Broker ใช้ non-TLS (mqtt://...:1883) ไม่ต้อง WiFiClientSecure
+ */

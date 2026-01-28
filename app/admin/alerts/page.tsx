@@ -5,6 +5,8 @@ import { useState, useMemo, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { ArrowLeft, CheckCircle, AlertCircle, AlertTriangle, Trash2, Check, RefreshCw, Bell, BellOff } from "lucide-react"
 import Link from "next/link"
 import {
@@ -24,6 +26,11 @@ export default function AlertsPage() {
   const [markingAsRead, setMarkingAsRead] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [autoRefresh, setAutoRefresh] = useState(true)
+  const [warnThreshold, setWarnThreshold] = useState<number>(25)
+  const [critThreshold, setCritThreshold] = useState<number>(50)
+  const [loadingSettings, setLoadingSettings] = useState(false)
+  const [savingSettings, setSavingSettings] = useState(false)
+  const [settingsError, setSettingsError] = useState<string | null>(null)
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
@@ -59,6 +66,27 @@ export default function AlertsPage() {
       supabase.removeChannel(channel)
     }
   }, [mutate])
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      setLoadingSettings(true)
+      setSettingsError(null)
+      try {
+        const res = await fetch("/api/alerts/settings")
+        if (!res.ok) throw new Error("โหลดค่าการแจ้งเตือนไม่สำเร็จ")
+        const data = await res.json()
+        setWarnThreshold(Number(data.warn_threshold) || 25)
+        setCritThreshold(Number(data.crit_threshold) || 50)
+      } catch (error: any) {
+        console.error("load settings failed", error)
+        setSettingsError(error?.message || "ไม่สามารถโหลดข้อมูลได้")
+      } finally {
+        setLoadingSettings(false)
+      }
+    }
+
+    loadSettings()
+  }, [])
 
   const filteredAlerts = useMemo(() => {
     if (!alerts || alerts.length === 0) return []
@@ -178,6 +206,43 @@ export default function AlertsPage() {
     }
   }
 
+  const handleSaveThresholds = async () => {
+    setSavingSettings(true)
+    setSettingsError(null)
+
+    if (!Number.isFinite(warnThreshold) || !Number.isFinite(critThreshold)) {
+      setSettingsError("กรุณากรอกตัวเลขให้ครบ")
+      setSavingSettings(false)
+      return
+    }
+
+    if (critThreshold <= warnThreshold) {
+      setSettingsError("Critical ต้องมากกว่า Warning")
+      setSavingSettings(false)
+      return
+    }
+
+    try {
+      const res = await fetch("/api/alerts/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          warn_threshold: warnThreshold,
+          crit_threshold: critThreshold,
+        }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.error || "บันทึกไม่สำเร็จ")
+      }
+    } catch (error: any) {
+      setSettingsError(error?.message || "ไม่สามารถบันทึกได้")
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
   return (
     <div className="p-4 md:p-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -227,6 +292,49 @@ export default function AlertsPage() {
           )}
         </div>
       </div>
+
+      <Card className="p-6 bg-card border-border mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-foreground">ตั้งค่าการแจ้งเตือน NH3</h3>
+            <p className="text-sm text-foreground/60">กำหนดค่า Warning และ Critical สำหรับทุกสถานี</p>
+          </div>
+          {loadingSettings && <span className="text-xs text-foreground/60">กำลังโหลด...</span>}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="warn">Warning (ppm)</Label>
+            <Input
+              id="warn"
+              type="number"
+              min={0}
+              value={warnThreshold}
+              onChange={(e) => setWarnThreshold(Number(e.target.value))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="crit">Critical (ppm)</Label>
+            <Input
+              id="crit"
+              type="number"
+              min={0}
+              value={critThreshold}
+              onChange={(e) => setCritThreshold(Number(e.target.value))}
+            />
+          </div>
+        </div>
+
+        {settingsError && (
+          <p className="text-sm text-destructive mt-3">{settingsError}</p>
+        )}
+
+        <div className="flex justify-end mt-4">
+          <Button onClick={handleSaveThresholds} disabled={savingSettings}>
+            {savingSettings ? "กำลังบันทึก..." : "บันทึกค่าการแจ้งเตือน"}
+          </Button>
+        </div>
+      </Card>
 
       {/* Statistics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">

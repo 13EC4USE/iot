@@ -25,7 +25,7 @@ export const passwordResetSchema = z.object({
 // Device schemas
 export const deviceSchema = z.object({
   name: z.string().min(1, "ชื่ออุปกรณ์จำเป็น").max(100, "ชื่ออุปกรณ์ต้องไม่เกิน 100 ตัวอักษร"),
-  type: z.enum(["temperature", "humidity", "motion", "light", "switch", "other"]),
+  type: z.enum(["temperature", "humidity", "motion", "light", "switch", "other", "ammonia"]),
   location: z.string().max(100, "สถานที่ต้องไม่เกิน 100 ตัวอักษร").optional(),
   mac_address: z
     .string()

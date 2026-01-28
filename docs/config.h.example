@@ -1,0 +1,102 @@
+/*
+ * IoT Ammonia Monitoring - Configuration File
+ * 
+ * คัดลอกไฟล์นี้เป็น config.h และแก้ไขค่าตามระบบของคุณ
+ * ไฟล์ config.h จะไม่ถูก commit ขึ้น git (อยู่ใน .gitignore)
+ */
+
+#ifndef CONFIG_H
+#define CONFIG_H
+
+// ========================================
+// 🌐 WiFi Configuration
+// ========================================
+#define WIFI_SSID "YourWiFiName"
+#define WIFI_PASSWORD "YourWiFiPassword"
+
+// ========================================
+// 📡 MQTT Configuration
+// ========================================
+#define MQTT_SERVER "192.168.1.142"         // IP ของ Raspberry Pi
+#define MQTT_PORT 1883
+#define MQTT_USER "iot_user"                // ถ้ามี authentication
+#define MQTT_PASSWORD "iot_password"        // ถ้ามี authentication
+
+// ========================================
+// 🏷️ Device Configuration
+// ========================================
+#define DEVICE_ID "Station_1"               // ดูจาก /admin/devices
+#define DEVICE_UUID "46588dc3-c4d1-4269-b626-90116c8b97a4"
+#define MQTT_TOPIC "iot/Station_1/ammonia"
+
+// ========================================
+// 📍 Location (Optional)
+// ========================================
+#define DEVICE_LOCATION "Pond A1"
+#define DEVICE_LAT 13.7563
+#define DEVICE_LNG 100.5018
+
+// ========================================
+// 🔌 Pin Configuration
+// ========================================
+#define AMMONIA_SENSOR_PIN 34               // ADC pin (ADC1_CH6)
+#define DHT_PIN 4                           // DHT22 data pin
+#define LED_PIN 2                           // Status LED
+#define BATTERY_PIN 35                      // Battery voltage monitoring (ADC1_CH7)
+
+// ========================================
+// ⚙️ Sensor Calibration
+// ========================================
+// MQ137 Ammonia Sensor
+#define MQ137_RL 10.0                       // Load resistance (kΩ)
+#define MQ137_R0 10.0                       // Sensor resistance in clean air (kΩ)
+#define MQ137_CLEAN_AIR_RATIO 3.6           // Rs/R0 in clean air
+
+// ADC Configuration
+#define ADC_RESOLUTION 4095.0               // ESP32: 12-bit = 4095
+#define ADC_VREF 3.3                        // ESP32 ADC reference voltage
+
+// ========================================
+// ⏱️ Timing Configuration
+// ========================================
+#define PUBLISH_INTERVAL 60000              // ส่งข้อมูลทุก 60 วินาที
+#define SENSOR_READ_SAMPLES 10              // อ่านค่าเฉลี่ย 10 ครั้ง
+#define SENSOR_READ_DELAY 100               // หน่วงเวลาระหว่างการอ่าน (ms)
+
+// ========================================
+// 💤 Power Saving
+// ========================================
+#define ENABLE_DEEP_SLEEP false             // เปิด/ปิด deep sleep mode
+#define SLEEP_DURATION 300                  // ระยะเวลานอน (วินาที)
+#define LOW_BATTERY_THRESHOLD 20            // แจ้งเตือนแบตเตอรี่ต่ำ (%)
+
+// ========================================
+// 🔔 Alert Thresholds (Local)
+// ========================================
+#define AMMONIA_WARNING_THRESHOLD 30.0      // PPM
+#define AMMONIA_CRITICAL_THRESHOLD 50.0     // PPM
+#define TEMP_MAX 35.0                       // °C
+#define TEMP_MIN 15.0                       // °C
+
+// ========================================
+// 🌐 NTP Configuration
+// ========================================
+#define NTP_SERVER "pool.ntp.org"
+#define GMT_OFFSET_SEC 25200                // GMT+7 = 7*3600
+#define DAYLIGHT_OFFSET_SEC 0
+
+// ========================================
+// 🐛 Debug Configuration
+// ========================================
+#define DEBUG_MODE true                     // เปิด/ปิด Serial debug
+#define SERIAL_BAUD 115200
+
+#if DEBUG_MODE
+  #define DEBUG_PRINT(x) Serial.print(x)
+  #define DEBUG_PRINTLN(x) Serial.println(x)
+#else
+  #define DEBUG_PRINT(x)
+  #define DEBUG_PRINTLN(x)
+#endif
+
+#endif // CONFIG_H

@@ -1,0 +1,25 @@
+{
+  "devices": {
+    "Station_1": {
+      "device_id": "Station_1",
+      "broker": "192.168.1.104",
+      "port": 1883,
+      "topic_prefix": "iot/",
+      "enabled": true,
+      "uuid": "46588dc3-c4d1-4269-b626-90116c8b97a4",
+      "last_updated": "2025-01-20T00:00:00"
+    }
+  },
+  "mqtt": {
+    "broker": "192.168.1.104",
+    "port": 1883,
+    "use_auth": false,
+    "username": "",
+    "password": ""
+  },
+  "local_logging": {
+    "csv_file": "sensor_data.csv",
+    "enable_csv": true,
+    "enable_supabase": true
+  }
+}

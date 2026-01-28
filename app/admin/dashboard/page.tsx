@@ -11,7 +11,6 @@ import { OnlineHistoryChart } from "@/components/admin/charts/online-history-cha
 import { DonutChart } from "@/components/admin/charts/donut-chart"
 import { SystemHealthWidget } from "@/components/admin/widgets/system-health-widget"
 import { RecentLogsWidget } from "@/components/admin/widgets/recent-logs-widget"
-import { MessageRateWidget } from "@/components/admin/widgets/message-rate-widget"
 import { GlobalSettingsDialog } from "@/components/admin/dialogs/global-settings-dialog"
 import { DeviceCustomizationDialog } from "@/components/admin/dialogs/device-customization-dialog"
 import { useToast } from "@/lib/hooks/useToast"
@@ -40,6 +39,9 @@ interface RecentDevice {
     unit: string | null
     temperature: number | null
     humidity: number | null
+    ammonia_ppm: number | null
+    calibrated_ro: number | null
+    station_id: string | null
     timestamp: string
   } | null
 }
@@ -67,29 +69,29 @@ export default function DashboardPage() {
   const [customizingDevice, setCustomizingDevice] = useState<RecentDevice | null>(null)
   const toast = useToast()
 
-  // Use SWR for summary stats - refresh every 10 minutes to minimize server costs
+  // Use SWR for summary stats - refresh every 10 seconds for development
   const { data: statsData, error: statsError, isLoading: statsLoading, mutate: mutateSummary } = useSWR(
     "/api/stats/summary",
     fetcher,
     {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      dedupingInterval: 120000, // 2 minutes
-      refreshInterval: 600000, // 10 minutes - minimal server load
+      revalidateOnFocus: true, // Enable refresh on window focus
+      revalidateOnReconnect: true,
+      dedupingInterval: 5000, // 5 seconds
+      refreshInterval: 10000, // 10 seconds - for development
       errorRetryCount: 2,
       errorRetryInterval: 30000,
     }
   )
 
-  // Use SWR for recent devices - refresh every 10 minutes
+  // Use SWR for recent devices - refresh every 10 seconds for development
   const { data: devicesData, error: devicesError, isLoading: devicesLoading, mutate: mutateDevices } = useSWR(
     "/api/devices/recent?limit=5&offset=0",
     fetcher,
     {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      dedupingInterval: 120000, // 2 minutes
-      refreshInterval: 600000, // 10 minutes - minimal server load
+      revalidateOnFocus: true, // Enable refresh on window focus
+      revalidateOnReconnect: true,
+      dedupingInterval: 5000, // 5 seconds
+      refreshInterval: 10000, // 10 seconds - for development
       errorRetryCount: 2,
       errorRetryInterval: 30000,
     }
@@ -256,7 +258,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Second Row: Online History + Message Rate + System Health */}
+      {/* Second Row: Online History + Data Info + System Health */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-1">
           <CardHeader>
@@ -267,7 +269,26 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <MessageRateWidget className="lg:col-span-1" />
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardTitle className="text-lg">ข้อมูลจาก Supabase</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">วันนี้: {new Date().toLocaleDateString('th-TH')}</p>
+              <p className="text-2xl font-bold text-foreground">
+                {loading ? <Loader className="h-6 w-6 animate-spin inline" /> : stats.messagesToday.toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground">ข้อมูลที่เก็บได้</p>
+            </div>
+            <div className="pt-2 border-t">
+              <p className="text-xs text-muted-foreground mb-1">ระหว่าง 5 นาทีล่าสุด</p>
+              <p className="text-sm font-semibold text-foreground">
+                {loading ? "-" : ((stats.messagesToday / ((Date.now() - new Date().setHours(0, 0, 0, 0)) / 1000)) || 0).toFixed(3)} msg/s
+              </p>
+            </div>
+          </CardContent>
+        </Card>
         
         <SystemHealthWidget className="lg:col-span-1" />
       </div>
@@ -317,24 +338,44 @@ export default function DashboardPage() {
                           <span>{device.location || "ไม่ระบุ"}</span>
                         </div>
                         
-                        {/* Latest Data */}
+                        {/* Latest Data - Ammonia Sensor */}
                         {lastData && (
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 pt-1 border-t">
-                            {lastData.temperature !== null && (
-                              <span>🌡️ {lastData.temperature}°C</span>
+                          <div className="mt-2 pt-2 border-t space-y-1">
+                            {/* Primary: Ammonia PPM */}
+                            {(lastData.ammonia_ppm !== null || lastData.value !== null) && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold text-orange-600 dark:text-orange-400">
+                                  🧪 NH₃: {(lastData.ammonia_ppm || lastData.value)?.toFixed(2)} {lastData.unit || 'ppm'}
+                                </span>
+                                {(lastData.ammonia_ppm || lastData.value || 0) > 25 && (
+                                  <Badge variant="destructive" className="text-xs">⚠️ สูง</Badge>
+                                )}
+                                {(lastData.ammonia_ppm || lastData.value || 0) > 50 && (
+                                  <Badge variant="destructive" className="text-xs animate-pulse">🚨 อันตราย!</Badge>
+                                )}
+                              </div>
                             )}
-                            {lastData.humidity !== null && (
-                              <span>💧 {lastData.humidity}%</span>
-                            )}
-                            {device.battery_level !== null && (
-                              <span>🔋 {device.battery_level}%</span>
-                            )}
-                            {device.signal_strength !== null && (
-                              <span>📶 {device.signal_strength}%</span>
-                            )}
-                            {lastData.value !== null && (
-                              <span>📊 {lastData.value} {lastData.unit}</span>
-                            )}
+                            {/* Secondary: Environmental */}
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                              {lastData.temperature !== null && (
+                                <span>🌡️ {lastData.temperature}°C</span>
+                              )}
+                              {lastData.humidity !== null && (
+                                <span>💧 {lastData.humidity}%</span>
+                              )}
+                              {lastData.calibrated_ro !== null && (
+                                <span title="Calibrated Resistance">⚙️ R₀: {lastData.calibrated_ro.toFixed(2)}</span>
+                              )}
+                              {lastData.station_id && (
+                                <span>📍 {lastData.station_id}</span>
+                              )}
+                              {device.battery_level !== null && (
+                                <span>🔋 {device.battery_level}%</span>
+                              )}
+                              {device.signal_strength !== null && (
+                                <span>📶 {device.signal_strength}%</span>
+                              )}
+                            </div>
                           </div>
                         )}
                         

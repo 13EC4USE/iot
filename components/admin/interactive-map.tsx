@@ -182,6 +182,7 @@ export function InteractiveMap({
 
   // Get sensor data for a device
   const getSensorData = (deviceId: string) => {
+    if (!Array.isArray(sensorData)) return undefined
     return sensorData.find((data) => data.device_id === deviceId)
   }
 

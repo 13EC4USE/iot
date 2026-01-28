@@ -1,7 +1,6 @@
 "use client"
 
 import { useDevices } from "@/lib/hooks/useSWR"
-import { useDeviceFull } from "@/lib/hooks/useDeviceFull"
 import { useState, useEffect, useMemo } from "react"
 import dynamic from "next/dynamic"
 import { Card } from "@/components/ui/card"
@@ -150,7 +149,9 @@ export default function DevicesPage() {
   const [creating, setCreating] = useState(false)
   
   // State สำหรับฟอร์ม
-  const [form, setForm] = useState({ name: "", type: "other", location: "", mac_address: "", mqtt_topic: "" })
+  const [form, setForm] = useState({ name: "", type: "ammonia", location: "", mac_address: "", mqtt_topic: "" })
+  const [syncToPi, setSyncToPi] = useState(false)
+  const [stationId, setStationId] = useState("")
   
   // State ใหม่! สำหรับเก็บ Credentials ที่ได้จาก Backend
   const [createdCredentials, setCreatedCredentials] = useState<any>(null)
@@ -388,60 +389,63 @@ export default function DevicesPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold text-foreground">จัดการอุปกรณ์</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">📱 จัดการอุปกรณ์</h1>
             {isAdmin && (
               <Badge variant="destructive" className="text-xs font-bold">
-                🔐 ADMIN MODE
+                🔐 ADMIN
               </Badge>
             )}
           </div>
-          <p className="text-foreground/60">
-            {isAdmin ? "กำลังดูอุปกรณ์ทั้งหมดในระบบ" : "เพิ่ม ลบ และควบคุมอุปกรณ์ IoT ของคุณ"}
+          <p className="text-sm text-foreground/60">
+            {isAdmin ? `กำลังดูอุปกรณ์ทั้งหมด (${displayDevices?.length || 0} เครื่อง)` : `เพิ่ม แก้ไข และควบคุมอุปกรณ์ IoT (${displayDevices?.length || 0} เครื่อง)`}
           </p>
         </div>
         
-        <div className="flex gap-2 md:gap-3 flex-wrap">
+        <div className="flex gap-2 flex-wrap">
           {/* Filter Toggle Button */}
           <Button
-            variant="outline"
+            variant={showFilters ? "default" : "outline"}
             size="sm"
             onClick={() => setShowFilters(!showFilters)}
             className="gap-2"
           >
             <Filter className="w-4 h-4" />
-            <span className="hidden sm:inline">ตัวกรอง</span>
+            ตัวกรอง
             {(searchQuery || filterType !== "all" || filterStatus !== "all" || sortBy !== "name") && (
-              <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center">!</Badge>
+              <Badge variant="secondary" className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
+                {[searchQuery, filterType !== "all", filterStatus !== "all", sortBy !== "name"].filter(Boolean).length}
+              </Badge>
             )}
           </Button>
 
           {/* View Mode Toggle */}
-          <div className="flex gap-1 bg-muted p-1 rounded-lg">
+          <div className="hidden md:flex gap-1 bg-muted p-1 rounded-lg">
             <Button
               size="sm"
               variant={viewMode === "list" ? "default" : "ghost"}
               onClick={() => setViewMode("list")}
-              className="gap-2"
+              className="gap-1 h-8 px-2"
             >
               <LayoutGrid className="w-4 h-4" />
-              รายการ
+              <span className="text-xs">รายการ</span>
             </Button>
             <Button
               size="sm"
               variant={viewMode === "widget" ? "default" : "ghost"}
               onClick={() => setViewMode("widget")}
-              className="gap-2"
+              className="gap-1 h-8 px-2"
             >
               <Grid3x3 className="w-4 h-4" />
-              Widget
+              <span className="text-xs">Widget</span>
             </Button>
           </div>
           
           <Dialog open={open} onOpenChange={handleCloseDialog}>
             <DialogTrigger asChild>
-              <Button className="bg-accent text-background hover:bg-accent/90 gap-2">
+              <Button className="bg-accent text-background hover:bg-accent/90 gap-2 h-9">
                 <Plus className="w-4 h-4" />
-                เพิ่มอุปกรณ์
+                <span className="hidden sm:inline">เพิ่มอุปกรณ์</span>
+                <span className="sm:hidden">เพิ่ม</span>
               </Button>
             </DialogTrigger>
 
@@ -473,6 +477,7 @@ export default function DevicesPage() {
                         <option value="light">Light</option>
                         <option value="switch">Switch</option>
                         <option value="other">Other</option>
+                        <option value="ammonia">Ammonia (NH₃)</option>
                         </select>
                     </div>
                     <div>
@@ -489,6 +494,23 @@ export default function DevicesPage() {
                   <div>
                     <Label>หมายเหตุ (Optional)</Label>
                     <Input value={form.mqtt_topic} onChange={(e) => setForm({ ...form, mqtt_topic: e.target.value })} placeholder="คำอธิบายเพิ่มเติม" />
+                  </div>
+
+                  {/* Pi Sync Options */}
+                  <div className="mt-2 p-3 rounded-lg border border-border bg-muted/40">
+                    <div className="flex items-center gap-2 mb-2">
+                      <input id="syncToPi" type="checkbox" checked={syncToPi} onChange={(e) => setSyncToPi(e.target.checked)} />
+                      <Label htmlFor="syncToPi">ซิงก์ไปยัง Pi (iot_config.json)</Label>
+                    </div>
+                    {syncToPi && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="col-span-2">
+                          <Label>Station ID</Label>
+                          <Input value={stationId} onChange={(e) => setStationId(e.target.value)} placeholder="เช่น Station_2" />
+                          <p className="text-[10px] text-muted-foreground mt-1">ถูกใช้เป็นคีย์ใน iot_config.json และ MQTT topic เช่น iot/Station_2/ammonia</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -509,7 +531,32 @@ export default function DevicesPage() {
                         if (res.ok) {
                           mutate() // รีเฟรชลิสต์ข้างหลัง
                           // สำคัญ: เซ็ตค่า Credential เพื่อเปลี่ยนหน้าจอ Dialog
-                          setCreatedCredentials(data.data) 
+                          setCreatedCredentials(data.data)
+                          // Optional: sync to Pi config manager
+                          if (syncToPi && stationId && data?.data?.id) {
+                            try {
+                              const resp = await fetch(`/api/iot-config?action=device&device_id=${encodeURIComponent(stationId)}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  uuid: data.data.id,
+                                  broker: '192.168.1.142',
+                                  port: 1883,
+                                  topic_prefix: 'iot/',
+                                  enabled: true,
+                                }),
+                              })
+                              const piRes = await resp.json()
+                              if (resp.ok && piRes?.status !== 'error') {
+                                toast({ title: '✅ ซิงก์ไปยัง Pi สำเร็จ', description: `เพิ่ม ${stationId} ใน iot_config.json แล้ว` })
+                              } else {
+                                toast({ title: '⚠️ ซิงก์ Pi ไม่สำเร็จ', description: piRes?.message || 'ตรวจสอบการเชื่อมต่อ Pi', variant: 'destructive' })
+                              }
+                            } catch (err) {
+                              console.error('Pi sync error', err)
+                              toast({ title: '⚠️ ซิงก์ Pi ไม่สำเร็จ', description: 'ไม่สามารถเชื่อมต่อ Pi ได้', variant: 'destructive' })
+                            }
+                          }
                         } else {
                           console.error('Failed to create device', data)
                           toast({
@@ -615,64 +662,75 @@ export default function DevicesPage() {
 
       {/* Filters Panel */}
       {showFilters && (
-        <Card className="p-4 mb-6 bg-muted/50">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="p-4 mb-6 bg-card border-border">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold">🔍 ตัวกรองและการค้นหา</h3>
+            {(searchQuery || filterType !== "all" || filterStatus !== "all" || sortBy !== "name" || sortOrder !== "asc") && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1 h-7 text-xs">
+                <X className="w-3 h-3" />
+                ล้างตัวกรอง
+              </Button>
+            )}
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Search */}
             <div>
-              <Label className="text-sm mb-2 block">ค้นหา</Label>
+              <Label className="text-xs mb-1.5 block text-muted-foreground">ค้นหา</Label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <Input
-                  placeholder="ชื่อ, ประเภท, ตำแหน่ง..."
+                  placeholder="ชื่อ, ประเภท..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
+                  className="pl-8 h-9 text-sm"
                 />
               </div>
             </div>
 
             {/* Type Filter */}
             <div>
-              <Label className="text-sm mb-2 block">ประเภทอุปกรณ์</Label>
+              <Label className="text-xs mb-1.5 block text-muted-foreground">ประเภท</Label>
               <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger>
+                <SelectTrigger className="h-9 text-sm">
                   <SelectValue placeholder="ทั้งหมด" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">ทั้งหมด</SelectItem>
-                  <SelectItem value="temperature">Temperature</SelectItem>
-                  <SelectItem value="humidity">Humidity</SelectItem>
-                  <SelectItem value="motion">Motion</SelectItem>
-                  <SelectItem value="light">Light</SelectItem>
-                  <SelectItem value="switch">Switch</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="ammonia">🧪 Ammonia</SelectItem>
+                  <SelectItem value="temperature">🌡️ Temperature</SelectItem>
+                  <SelectItem value="humidity">💧 Humidity</SelectItem>
+                  <SelectItem value="motion">👋 Motion</SelectItem>
+                  <SelectItem value="light">💡 Light</SelectItem>
+                  <SelectItem value="switch">🔌 Switch</SelectItem>
+                  <SelectItem value="other">📦 Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Status Filter */}
             <div>
-              <Label className="text-sm mb-2 block">สถานะ</Label>
+              <Label className="text-xs mb-1.5 block text-muted-foreground">สถานะ</Label>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger>
+                <SelectTrigger className="h-9 text-sm">
                   <SelectValue placeholder="ทั้งหมด" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">ทั้งหมด</SelectItem>
-                  <SelectItem value="online">ออนไลน์</SelectItem>
-                  <SelectItem value="offline">ออฟไลน์</SelectItem>
-                  <SelectItem value="active">เปิดใช้งาน</SelectItem>
-                  <SelectItem value="inactive">ปิดใช้งาน</SelectItem>
+                  <SelectItem value="online">🟢 ออนไลน์</SelectItem>
+                  <SelectItem value="offline">🔴 ออฟไลน์</SelectItem>
+                  <SelectItem value="active">✅ เปิดใช้งาน</SelectItem>
+                  <SelectItem value="inactive">⏸️ ปิดใช้งาน</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Sort */}
             <div>
-              <Label className="text-sm mb-2 block">เรียงตาม</Label>
+              <Label className="text-xs mb-1.5 block text-muted-foreground">เรียงตาม</Label>
               <div className="flex gap-2">
                 <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="flex-1">
+                  <SelectTrigger className="flex-1 h-9 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -688,29 +746,23 @@ export default function DevicesPage() {
                   size="icon"
                   onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
                   title={sortOrder === "asc" ? "เรียงจากน้อยไปมาก" : "เรียงจากมากไปน้อย"}
+                  className="h-9 w-9"
                 >
                   <SortAsc className={`w-4 h-4 transition-transform ${sortOrder === "desc" ? "rotate-180" : ""}`} />
                 </Button>
               </div>
             </div>
           </div>
-
-          {/* Clear Filters Button */}
-          {(searchQuery || filterType !== "all" || filterStatus !== "all" || sortBy !== "name" || sortOrder !== "asc") && (
-            <div className="mt-4 flex justify-end">
-              <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-2">
-                <X className="w-4 h-4" />
-                ล้างตัวกรอง
-              </Button>
-            </div>
-          )}
         </Card>
       )}
 
-      {/* Results Count */}
-      {displayDevices && displayDevices.length !== devices?.length && (
+      {/* Results Summary */}
+      {(searchQuery || filterType !== "all" || filterStatus !== "all") && displayDevices && (
         <div className="mb-4 text-sm text-muted-foreground">
-          พบ {displayDevices.length} จาก {devices?.length} อุปกรณ์
+          พบ <span className="font-semibold text-foreground">{displayDevices.length}</span> อุปกรณ์
+          {devices && displayDevices.length < devices.length && (
+            <span> จากทั้งหมด {devices.length} อุปกรณ์</span>
+          )}
         </div>
       )}
 
@@ -783,7 +835,7 @@ export default function DevicesPage() {
                 <div className="flex justify-between">
                   <span className="text-sm text-foreground/60">Client ID:</span>
                   <span className="text-sm font-medium text-foreground font-mono">
-                    {device.client_id ? (device.client_id.substring(0, 10) + "...") : "-"}
+                    {device.mqtt_client_id ? (device.mqtt_client_id.substring(0, 16) + "...") : "-"}
                   </span>
                 </div>
               </div>

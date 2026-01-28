@@ -33,8 +33,7 @@ export async function GET(request: Request) {
         created_at,
         battery_level,
         signal_strength,
-        user_id,
-        last_data:sensor_data(value, unit, temperature, humidity, timestamp)
+        user_id
       `,
         { count: "exact" }
       )
@@ -53,11 +52,23 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Get latest data point for each device
-    const enriched = devices?.map((device: any) => ({
-      ...device,
-      lastData: device.last_data?.[0] || null
-    })) || []
+    // Get latest data point for each device separately
+    const enriched = await Promise.all(
+      (devices || []).map(async (device: any) => {
+        const { data: latestData } = await supabase
+          .from("sensor_data")
+          .select("value, unit, temperature, humidity, ammonia_ppm, calibrated_ro, station_id, timestamp")
+          .eq("device_id", device.id)
+          .order("timestamp", { ascending: false })
+          .limit(1)
+          .single()
+
+        return {
+          ...device,
+          lastData: latestData || null
+        }
+      })
+    )
 
     return NextResponse.json({
       devices: enriched,

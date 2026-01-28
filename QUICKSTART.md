@@ -36,10 +36,32 @@ npm run dev
 1. **Dashboard**: View real-time device metrics
 2. **Device Management**: Add/edit/delete IoT devices
 3. **Device Control**: Send MQTT commands
-4. **User Management**: Manage admin users
+4. **Workflow Monitor**: Check data flow (ESP32→MQTT→Pi→Supabase→Web)
 5. **Alerts**: Setup and monitor alerts
 
-## HiveMQ Cloud Setup
+## 🚀 Production Setup (ESP32 + Raspberry Pi)
+
+### Hardware Requirements
+- **ESP32** with ammonia sensor (MQ137)
+- **Raspberry Pi** with MQTT broker (Mosquitto)
+- **Sensors**: DHT22 (temperature/humidity), optional battery monitor
+
+### Quick Steps
+1. Setup Raspberry Pi MQTT broker (see `/docs/MQTT_CONTROL_GUIDE.md`)
+2. Copy `/docs/config.h.example` → `config.h`
+3. Edit `config.h` with your WiFi & MQTT settings
+4. Upload code to ESP32 (see `/docs/ESP32_PRODUCTION_CODE.md`)
+5. Monitor at: `/admin/workflow`
+
+### Test Workflow
+```bash
+# On Raspberry Pi
+node scripts/test_workflow.cjs
+```
+
+Then check `/admin/workflow` to see data flow.
+
+## HiveMQ Cloud Setup (Alternative)
 
 1. Create account at hivemq.com
 2. Create new cluster

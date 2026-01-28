@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createAdminClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { isSuperAdmin } from "@/lib/utils/admin"
 
@@ -13,8 +13,11 @@ export async function GET() {
 
     const isAdmin = isSuperAdmin(user.email)
 
+    // Use admin client to bypass RLS for stats queries
+    const queryClient = isAdmin ? createAdminClient() : supabase
+
     // Get device counts - optimized query
-    let query = supabase
+    let query = queryClient
       .from("devices")
       .select("id, is_active, last_update", { count: "exact" })
 
@@ -39,13 +42,26 @@ export async function GET() {
     const offline = total - online
 
     // Get today's message count
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
+    const now = new Date()
+    const todayStart = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      0, 0, 0, 0
+    ))
 
-    const { count: messagesToday, error: msgError } = await supabase
+    let messageQuery = queryClient
       .from("sensor_data")
       .select("*", { count: "exact", head: true })
       .gte("timestamp", todayStart.toISOString())
+
+    // Filter by user's devices if NOT admin
+    if (!isAdmin && devices && devices.length > 0) {
+      const userDeviceIds = devices.map((d: any) => d.id)
+      messageQuery = messageQuery.in("device_id", userDeviceIds)
+    }
+
+    const { count: messagesToday, error: msgError } = await messageQuery
 
     if (msgError) {
       console.error("Message count error:", msgError)
@@ -57,7 +73,11 @@ export async function GET() {
       offline,
       messagesToday: messagesToday || 0,
       isAdmin,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      debug: {
+        todayStart: todayStart.toISOString(),
+        deviceCount: devices?.length || 0,
+      }
     })
   } catch (error: any) {
     console.error("Stats summary error:", error)

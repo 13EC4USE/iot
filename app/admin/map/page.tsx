@@ -77,7 +77,7 @@ export default function MapPage() {
 
   // Find sensor data for selected device
   const getDeviceSensorData = (deviceId: string) => {
-    if (!sensorData) return null
+    if (!sensorData || !Array.isArray(sensorData)) return null
     return sensorData.find((data) => data.device_id === deviceId)
   }
 

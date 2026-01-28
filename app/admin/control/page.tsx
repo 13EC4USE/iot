@@ -405,10 +405,10 @@ export default function DeviceControlPage() {
 
             <div className="grid grid-cols-2 gap-6 mb-8">
               <div className="bg-background p-6 rounded-lg border border-border">
-                <p className="text-foreground/60 text-sm mb-2">ค่าปัจจุบัน</p>
+                <p className="text-foreground/60 text-sm mb-2">ค่าล่าสุด</p>
                 <p className="text-4xl font-bold text-accent">
-                  {sensorData && sensorData.length > 0 ? sensorData[sensorData.length - 1].value : "ไม่มีข้อมูล"}
-                  <span className="text-xl ml-2">{localDevice.unit}</span>
+                  {sensorData && sensorData.length > 0 ? sensorData[0].value.toFixed(2) : "ไม่มีข้อมูล"}
+                  <span className="text-xl ml-2">{localDevice?.unit || 'ppm'}</span>
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-4">

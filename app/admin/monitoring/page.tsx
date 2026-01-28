@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { RefreshCw, Pause, Play } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { SystemStatusWidget } from "@/components/admin/widgets/system-status-widget"
 import { ServerMonitoringWidget } from "@/components/admin/widgets/server-monitoring-widget"
 import { SystemHealthWidget } from "@/components/admin/widgets/system-health-widget"
@@ -14,6 +14,15 @@ export default function MonitoringPage() {
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
   const [isManualRefreshing, setIsManualRefreshing] = useState(false)
   const [isAutoRefreshEnabled, setIsAutoRefreshEnabled] = useState(false)
+  const [browserInfo, setBrowserInfo] = useState<string>("N/A")
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+    if (typeof window !== "undefined") {
+      setBrowserInfo(navigator.userAgent.split(" ").slice(-2).join(" "))
+    }
+  }, [])
 
   const handleRefresh = async () => {
     setIsManualRefreshing(true)
@@ -98,13 +107,13 @@ export default function MonitoringPage() {
             <div className="p-4 rounded-lg bg-background/50 border border-border">
               <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Browser</p>
               <p className="text-sm font-semibold text-foreground">
-                {typeof window !== "undefined" ? navigator.userAgent.split(" ").slice(-2).join(" ") : "N/A"}
+                {browserInfo}
               </p>
             </div>
             <div className="p-4 rounded-lg bg-background/50 border border-border">
               <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Time</p>
               <p className="text-sm font-semibold text-foreground">
-                {new Date().toLocaleString("th-TH")}
+                {mounted ? new Date().toLocaleString("th-TH") : "N/A"}
               </p>
             </div>
             <div className="p-4 rounded-lg bg-background/50 border border-border">
